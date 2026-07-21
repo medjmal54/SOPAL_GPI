@@ -1,0 +1,6 @@
+@SOPAL_GPI_HostAddress = http://localhost:5001
+
+GET {{SOPAL_GPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

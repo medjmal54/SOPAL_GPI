@@ -1,0 +1,34 @@
+# ==========================================
+# 1. Visual Studio & IDE (Verrous & Cache)
+# ==========================================
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ==========================================
+# 2. Compilation .NET & Fichiers générés
+# ==========================================
+bin/
+obj/
+[D-d]ebug/
+[R-r]elease/
+*.dll
+*.exe
+*.pdb
+
+# ==========================================
+# 3. Paramètres locaux & Sécurité (Secrets)
+# ==========================================
+# Utile pour ne pas exposer tes vraies clés JWT ou chaînes de connexion DB
+appsettings.Development.json
+appsettings.Local.json
+*.env
+
+# ==========================================
+# 5. Divers & OS
+# ==========================================
+.DS_Store
+Thumbs.db
