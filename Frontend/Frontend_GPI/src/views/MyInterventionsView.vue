@@ -11,20 +11,6 @@ import { useToast } from '../composables/useToast'
 const { state } = useAuth()
 const { success, error: toastError } = useToast()
 
-function raw(mat, k1, k2) {
-  return mat[k1] ?? mat[k2] ?? null
-}
-
-function findById(list, id) {
-  return list.find(item => raw(item, 'id', 'Id') === id) ?? null
-}
-
-function nameOf(list, id, labelKey = 'libelle', idKey = 'id') {
-  if (!id) return '#'
-  const item = list.find(el => raw(el, idKey, idKey[0].toUpperCase() + idKey.slice(1)) === id)
-  return item ? raw(item, labelKey, labelKey[0].toUpperCase() + labelKey.slice(1)) || `#${id}` : `#${id}`
-}
-
 const items = ref([])
 const materials = ref([])
 const employees = ref([])
@@ -66,32 +52,17 @@ async function loadData() {
 
 onMounted(loadData)
 
-const filtered = computed(() => {
-  if (!query.value) return items.value
-  const q = query.value.toLowerCase()
-  return items.value.filter(item => {
-    const search = [
-      raw(item, 'commentaires', 'Commentaires'),
-      raw(item, 'statut', 'Statut'),
-      raw(item, 'dateMouvement', 'DateMouvement'),
-      materialName(raw(item, 'materielId', 'MaterielId')),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return search.includes(q)
-  })
-})
-
 function materialName(id) {
-  return nameOf(materials, id, 'libelle', 'id')
+  if (!id) return '#'
+  const found = materials.value.find(m => m.id === id)
+  return found?.libelle ?? `#${id}`
 }
 
 function employeeName(matricule) {
   if (!matricule) return null
-  const found = employees.value.find(e => raw(e, 'matricule', 'Matricule') === matricule)
+  const found = employees.value.find(e => e.matricule === matricule)
   if (!found) return `#${matricule}`
-  return `${raw(found, 'nom', 'Nom') ?? ''} ${raw(found, 'prenom', 'Prenom') ?? ''}`.trim() || `#${matricule}`
+  return `${found.nom ?? ''} ${found.prenom ?? ''}`.trim() || `#${matricule}`
 }
 
 function formatDate(d) {
@@ -109,22 +80,36 @@ function isTerminated(statut) {
   return statusLabel(statut) === 'Terminé'
 }
 
-function statusColor(statut) {
-  if (isTerminated(statut)) return { text: 'text-emerald-400', hover: 'hover:text-emerald-300', bg: 'rgba(34,197,94,0.15)', border: 'rgba(34,197,94,0.25)', color: '#4ade80' }
-  return { text: 'text-indigo-400', hover: 'hover:text-indigo-300', bg: 'rgba(99,102,241,0.15)', border: 'rgba(99,102,241,0.25)', color: '#a5b4fc' }
-}
+const inProgressCount = computed(() => items.value.filter(i => !isTerminated(i.statut)).length)
+
+const filtered = computed(() => {
+  if (!query.value) return items.value
+  const q = query.value.toLowerCase()
+  return items.value.filter(item => {
+    const search = [
+      item.commentaires,
+      item.statut,
+      item.dateMouvement,
+      materialName(item.materielId),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+    return search.includes(q)
+  })
+})
 
 const columns = [
-  { key: 'DateMouvement', label: 'Date', sortable: true },
-  { key: 'MaterielId', label: 'Matériel', sortable: true },
-  { key: 'Commentaires', label: 'Description', sortable: false },
-  { key: 'Statut', label: 'Statut', sortable: true },
+  { key: 'dateMouvement', label: 'Date', sortable: true },
+  { key: 'materielId', label: 'Matériel', sortable: true },
+  { key: 'commentaires', label: 'Description', sortable: false },
+  { key: 'statut', label: 'Statut', sortable: true },
 ]
 
 function openDetail(row) {
   selectedRequest.value = row
   showDetail.value = true
-  loadInterventions(raw(row, 'id', 'Id'))
+  loadInterventions(row.id)
 }
 
 async function loadInterventions(mouvementId) {
@@ -141,15 +126,12 @@ async function loadInterventions(mouvementId) {
 }
 
 async function toggleStatus(row) {
-  const id = raw(row, 'id', 'Id')
+  const id = row.id
   try {
     const res = await apiPut(`/v1/mouvements/${id}/toggle-resolve`)
-    const idx = items.value.findIndex(i => raw(i, 'id', 'Id') === id)
+    const idx = items.value.findIndex(i => i.id === id)
     if (idx !== -1) {
       items.value[idx] = { ...items.value[idx], statut: res.statut }
-    }
-    if (res.statut === 'Terminé') {
-      items.value = items.value.filter(i => raw(i, 'id', 'Id') !== id)
     }
     success(res.message || 'Statut mis à jour.')
   } catch (e) {
@@ -183,16 +165,16 @@ async function submitBatch() {
   if (!batchSelected.value.length || !batchComment.value) return
   batchSaving.value = true
   try {
-    const items_payload = batchSelected.value.map(id => {
-      const row = findById(items.value, id)
-      return { matId: raw(row, 'materielId', 'MaterielId'), maintId: id }
+    const itemsPayload = batchSelected.value.map(id => {
+      const row = items.value.find(i => i.id === id)
+      return { matId: row?.materielId, maintId: id }
     })
     await apiPost('/Intervention/batch', {
       commentaires: batchComment.value,
       date: new Date().toISOString().split('T')[0],
-      items: items_payload,
+      items: itemsPayload,
     })
-    success(`${items_payload.length} intervention(s) créée(s).`)
+    success(`${itemsPayload.length} intervention(s) créée(s).`)
     showBatch.value = false
     await loadData()
   } catch (e) {
@@ -215,8 +197,8 @@ async function submitAddSingle() {
     await apiPost('/Intervention', {
       commentaires: addSingleComment.value,
       date: new Date().toISOString().split('T')[0],
-      matId: raw(addSingleRequest.value, 'materielId', 'MaterielId'),
-      maintId: raw(addSingleRequest.value, 'id', 'Id'),
+      matId: addSingleRequest.value.materielId,
+      maintId: addSingleRequest.value.id,
     })
     success('Intervention enregistrée.')
     showAddSingle.value = false
@@ -256,7 +238,7 @@ function badgeStyle(statut) {
       <template #actions>
         <span class="badge badge-indigo">
           <Wrench :size="11" class="mr-1" />
-          {{ items.length }} en cours
+          {{ inProgressCount }} en cours
         </span>
       </template>
     </PageHeader>
@@ -274,18 +256,18 @@ function badgeStyle(statut) {
       :rows="filtered"
       :loading="loading"
       :show-actions="true"
-      empty-text="Aucune intervention en cours."
+      empty-text="Aucune intervention assignée."
     >
-      <template #cell-DateMouvement="{ value }">
+      <template #cell-dateMouvement="{ value }">
         <span class="text-slate-400 text-xs">{{ formatDate(value) }}</span>
       </template>
-      <template #cell-MaterielId="{ value }">
+      <template #cell-materielId="{ value }">
         <span class="text-slate-300">{{ materialName(value) }}</span>
       </template>
-      <template #cell-Commentaires="{ value }">
+      <template #cell-commentaires="{ value }">
         <span class="text-slate-400 text-sm truncate block max-w-xs">{{ value }}</span>
       </template>
-      <template #cell-Statut="{ value, row }">
+      <template #cell-statut="{ value, row }">
         <button
           class="inline-flex items-center gap-1.5 text-xs font-medium transition cursor-pointer"
           :class="[isTerminated(value) ? 'text-emerald-400 hover:text-emerald-300' : 'text-indigo-400 hover:text-indigo-300']"
@@ -323,7 +305,7 @@ function badgeStyle(statut) {
     <!-- Detail Modal -->
     <Modal
       v-if="showDetail"
-      :title="`Intervention — ${materialName(raw(selectedRequest, 'materielId', 'MaterielId'))}`"
+      :title="`Intervention — ${materialName(selectedRequest?.materielId)}`"
       size="lg"
       hide-footer
       @close="showDetail = false"
@@ -331,7 +313,7 @@ function badgeStyle(statut) {
       <div class="space-y-5">
         <div class="rounded-xl p-3" style="background:rgba(8,12,30,0.6);border:1px solid rgba(255,255,255,0.06);">
           <div class="text-xs text-slate-500 mb-1">Description de la panne</div>
-          <p class="text-sm text-slate-300">{{ raw(selectedRequest, 'commentaires', 'Commentaires') || 'Aucune description.' }}</p>
+          <p class="text-sm text-slate-300">{{ selectedRequest?.commentaires || 'Aucune description.' }}</p>
         </div>
 
         <div>
@@ -340,19 +322,19 @@ function badgeStyle(statut) {
               <CircleCheck :size="14" class="text-indigo-400" />
               <span class="text-sm font-semibold text-slate-300">Progression</span>
             </div>
-            <span class="text-xs font-medium px-2 py-0.5 rounded-full" :style="badgeStyle(raw(selectedRequest, 'statut', 'Statut'))">
-              {{ statusLabel(raw(selectedRequest, 'statut', 'Statut')) }}
+            <span class="text-xs font-medium px-2 py-0.5 rounded-full" :style="badgeStyle(selectedRequest?.statut)">
+              {{ statusLabel(selectedRequest?.statut) }}
             </span>
           </div>
           <div class="w-full h-2 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.06);">
             <div class="h-full rounded-full transition-all duration-500" :style="{
-              width: interventionProgress(raw(selectedRequest, 'statut', 'Statut')) + '%',
-              background: progressGradient(raw(selectedRequest, 'statut', 'Statut'))
+              width: interventionProgress(selectedRequest?.statut) + '%',
+              background: progressGradient(selectedRequest?.statut)
             }" />
           </div>
           <div class="flex justify-between mt-1.5">
             <span class="text-xs text-slate-600">0%</span>
-            <span class="text-xs text-slate-600">{{ interventionProgress(raw(selectedRequest, 'statut', 'Statut')) }}%</span>
+            <span class="text-xs text-slate-600">{{ interventionProgress(selectedRequest?.statut) }}%</span>
             <span class="text-xs text-slate-600">100%</span>
           </div>
         </div>
@@ -375,7 +357,7 @@ function badgeStyle(statut) {
           <div v-else class="space-y-2 max-h-48 overflow-y-auto pr-1">
             <div
               v-for="(interv, idx) in interventions"
-              :key="raw(interv, 'id', 'Id')"
+              :key="interv.id"
               class="rounded-xl p-3 flex items-start gap-3"
               style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);"
             >
@@ -387,12 +369,12 @@ function badgeStyle(statut) {
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="text-xs text-slate-500">{{ formatDate(raw(interv, 'date', 'Date')) }}</span>
-                  <span v-if="raw(interv, 'intervenantId', 'IntervenantId')" class="text-xs text-slate-600">
-                    — {{ employeeName(raw(interv, 'intervenantId', 'IntervenantId')) }}
+                  <span class="text-xs text-slate-500">{{ formatDate(interv.date) }}</span>
+                  <span v-if="interv.intervenantId" class="text-xs text-slate-600">
+                    — {{ employeeName(interv.intervenantId) }}
                   </span>
                 </div>
-                <p class="text-sm text-slate-300">{{ raw(interv, 'commentaires', 'Commentaires') }}</p>
+                <p class="text-sm text-slate-300">{{ interv.commentaires }}</p>
               </div>
             </div>
           </div>
@@ -401,14 +383,14 @@ function badgeStyle(statut) {
         <div class="pt-2" style="border-top:1px solid rgba(255,255,255,0.06);">
           <button
             class="btn w-full justify-center gap-2"
-            :style="isTerminated(raw(selectedRequest, 'statut', 'Statut'))
+            :style="isTerminated(selectedRequest?.statut)
               ? 'background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);'
               : 'background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);'"
             @click="confirmToggleStatusFromDetail"
           >
-            <ToggleRight v-if="isTerminated(raw(selectedRequest, 'statut', 'Statut'))" :size="15" />
+            <ToggleRight v-if="isTerminated(selectedRequest?.statut)" :size="15" />
             <ToggleLeft v-else :size="15" />
-            {{ isTerminated(raw(selectedRequest, 'statut', 'Statut')) ? 'Marquer comme en cours' : 'Marquer comme terminé' }}
+            {{ isTerminated(selectedRequest?.statut) ? 'Marquer comme en cours' : 'Marquer comme terminé' }}
           </button>
         </div>
       </div>
@@ -417,7 +399,7 @@ function badgeStyle(statut) {
     <!-- Add Single Modal -->
     <Modal
       v-if="showAddSingle"
-      :title="`Nouvelle intervention — ${materialName(raw(addSingleRequest, 'materielId', 'MaterielId'))}`"
+      :title="`Nouvelle intervention — ${materialName(addSingleRequest?.materielId)}`"
       size="md"
       confirm-text="Ajouter"
       :loading="addSingleSaving"
@@ -427,7 +409,7 @@ function badgeStyle(statut) {
       <div class="space-y-4">
         <div class="rounded-xl p-3" style="background:rgba(8,12,30,0.6);border:1px solid rgba(255,255,255,0.06);">
           <div class="text-xs text-slate-500 mb-1">Description de la panne</div>
-          <p class="text-sm text-slate-300">{{ raw(addSingleRequest, 'commentaires', 'Commentaires') || 'Aucune description.' }}</p>
+          <p class="text-sm text-slate-300">{{ addSingleRequest?.commentaires || 'Aucune description.' }}</p>
         </div>
         <div>
           <div class="flex items-center gap-2 mb-2">
@@ -470,23 +452,23 @@ function badgeStyle(statut) {
           <div v-else class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
             <label
               v-for="row in items"
-              :key="raw(row, 'id', 'Id')"
+              :key="row.id"
               class="flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition"
-              :style="isBatchSelected(raw(row, 'id', 'Id'))
+              :style="isBatchSelected(row.id)
                 ? 'background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);'
                 : 'background:rgba(8,12,30,0.6);border:1px solid rgba(255,255,255,0.06);'"
-              @click.prevent="toggleBatchSelect(raw(row, 'id', 'Id'))"
+              @click.prevent="toggleBatchSelect(row.id)"
             >
               <input
                 type="checkbox"
-                :checked="isBatchSelected(raw(row, 'id', 'Id'))"
+                :checked="isBatchSelected(row.id)"
                 class="accent-indigo-500 w-4 h-4"
               />
               <div class="flex-1 min-w-0">
-                <div class="text-sm text-slate-300 font-medium">{{ materialName(raw(row, 'materielId', 'MaterielId')) }}</div>
-                <div class="text-xs text-slate-500 truncate">{{ raw(row, 'commentaires', 'Commentaires') || 'Aucune description' }}</div>
+                <div class="text-sm text-slate-300 font-medium">{{ materialName(row.materielId) }}</div>
+                <div class="text-xs text-slate-500 truncate">{{ row.commentaires || 'Aucune description' }}</div>
               </div>
-              <span class="text-xs text-slate-600">{{ formatDate(raw(row, 'dateMouvement', 'DateMouvement')) }}</span>
+              <span class="text-xs text-slate-600">{{ formatDate(row.dateMouvement) }}</span>
             </label>
           </div>
         </div>

@@ -138,7 +138,7 @@ public class MouvementRepository(IGenericRepository<Mouvement> MouvRepo, IMateri
     public async Task<List<Mouvement>> GetMyInterventionsAsync(int adminMatricule)
     {
         return await db.Mouvements
-            .Where(x => x.Typmov == 4 && x.EmployeMat == adminMatricule && x.Statut != "Terminé")
+            .Where(x => x.Typmov == 4 && x.EmployeMat == adminMatricule)
             .ToListAsync();
     }
 

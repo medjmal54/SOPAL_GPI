@@ -161,3 +161,4 @@ C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\obj\Debug\net10.0\re
 C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\obj\Debug\net10.0\SOPAL_GPI.pdb
 C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\obj\Debug\net10.0\SOPAL_GPI.genruntimeconfig.cache
 C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\obj\Debug\net10.0\ref\SOPAL_GPI.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\obj\Debug\net10.0\SOPAL_GPI.sourcelink.json
