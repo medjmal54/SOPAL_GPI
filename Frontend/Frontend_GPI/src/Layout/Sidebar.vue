@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   Package,
   ClipboardCheck,
+  MapPin,
 } from 'lucide-vue-next'
 
 const route = useRoute()
@@ -27,6 +28,7 @@ const menuItems = computed(() => {
       { path: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard, color: 'text-indigo-400' },
       { path: '/materiels', label: 'Parc Matériel', icon: Monitor, color: 'text-cyan-400' },
       { path: '/mouvements', label: 'Historique Flux', icon: ArrowRightLeft, color: 'text-violet-400' },
+      { path: '/localisations', label: 'Localisations', icon: MapPin, color: 'text-amber-400' },
       { path: '/demandes', label: 'Demandes', icon: Wrench, color: 'text-amber-400' },
       { path: '/mes-interventions', label: 'Mes Interventions', icon: ClipboardCheck, color: 'text-indigo-400' },
       { path: '/employes', label: 'Personnel', icon: Users, color: 'text-emerald-400' },

@@ -7,6 +7,7 @@ import { apiGet } from '../services/api'
 
 const route = useRoute()
 const loading = ref(true)
+const error = ref(null)
 const items = ref([])
 const materials = ref([])
 const localisations = ref([])
@@ -45,9 +46,10 @@ const config = computed(() => {
 })
 
 const filteredItems = computed(() => {
-  if (!query.value) return items.value
+  const list = items.value || []
+  if (!query.value) return list
   const needle = query.value.toLowerCase()
-  return items.value.filter((item) => JSON.stringify(item).toLowerCase().includes(needle))
+  return list.filter((item) => JSON.stringify(item).toLowerCase().includes(needle))
 })
 
 async function loadData() {
@@ -77,6 +79,7 @@ async function loadData() {
       items.value = Array.isArray(data) ? data : []
     }
   } catch (err) {
+    error.value = 'Erreur de chargement des données.'
     console.error(err)
   } finally {
     loading.value = false

@@ -80,23 +80,37 @@ function isTerminated(statut) {
   return statusLabel(statut) === 'Terminé'
 }
 
-const inProgressCount = computed(() => items.value.filter(i => !isTerminated(i.statut)).length)
+const showDone = ref(false)
 
-const filtered = computed(() => {
-  if (!query.value) return items.value
-  const q = query.value.toLowerCase()
-  return items.value.filter(item => {
-    const search = [
-      item.commentaires,
-      item.statut,
-      item.dateMouvement,
-      materialName(item.materielId),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-    return search.includes(q)
-  })
+const activeCount = computed(() => (showDone.value
+  ? (items.value || []).filter(i => isTerminated(i.statut)).length
+  : (items.value || []).filter(i => !isTerminated(i.statut)).length))
+
+const batchItems = computed(() => (showDone.value
+  ? (items.value || []).filter(i => isTerminated(i.statut))
+  : (items.value || [])))
+
+const tabFiltered = computed(() => {
+  const list = items.value || []
+  let result = showDone.value
+    ? list.filter(i => isTerminated(i.statut))
+    : list.filter(i => !isTerminated(i.statut))
+  if (query.value) {
+    const q = query.value.toLowerCase()
+    result = result.filter(item => {
+      const search = [
+        item.commentaires,
+        item.statut,
+        item.dateMouvement,
+        materialName(item.materielId),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return search.includes(q)
+    })
+  }
+  return result
 })
 
 const columns = [
@@ -109,7 +123,7 @@ const columns = [
 function openDetail(row) {
   selectedRequest.value = row
   showDetail.value = true
-  loadInterventions(row.id)
+  loadInterventions(row.id ?? row.Id)
 }
 
 async function loadInterventions(mouvementId) {
@@ -126,12 +140,13 @@ async function loadInterventions(mouvementId) {
 }
 
 async function toggleStatus(row) {
-  const id = row.id
+  const id = row.id ?? row.Id
   try {
     const res = await apiPut(`/v1/mouvements/${id}/toggle-resolve`)
-    const idx = items.value.findIndex(i => i.id === id)
+    const list = items.value || []
+    const idx = list.findIndex(i => (i.id ?? i.Id) === id)
     if (idx !== -1) {
-      items.value[idx] = { ...items.value[idx], statut: res.statut }
+      list[idx] = { ...list[idx], statut: res.statut }
     }
     success(res.message || 'Statut mis à jour.')
   } catch (e) {
@@ -165,9 +180,10 @@ async function submitBatch() {
   if (!batchSelected.value.length || !batchComment.value) return
   batchSaving.value = true
   try {
+    const list = items.value || []
     const itemsPayload = batchSelected.value.map(id => {
-      const row = items.value.find(i => i.id === id)
-      return { matId: row?.materielId, maintId: id }
+      const row = list.find(i => (i.id ?? i.Id) === id)
+      return { matId: row?.materielId ?? row?.MaterielId, maintId: id }
     })
     await apiPost('/Intervention/batch', {
       commentaires: batchComment.value,
@@ -197,8 +213,8 @@ async function submitAddSingle() {
     await apiPost('/Intervention', {
       commentaires: addSingleComment.value,
       date: new Date().toISOString().split('T')[0],
-      matId: addSingleRequest.value.materielId,
-      maintId: addSingleRequest.value.id,
+      matId: addSingleRequest.value.materielId ?? addSingleRequest.value.MaterielId,
+      maintId: addSingleRequest.value.id ?? addSingleRequest.value.Id,
     })
     success('Intervention enregistrée.')
     showAddSingle.value = false
@@ -236,15 +252,29 @@ function badgeStyle(statut) {
       :icon="Wrench"
     >
       <template #actions>
-        <span class="badge badge-indigo">
+        <span class="badge" :style="showDone ? 'background:rgba(34,197,94,0.15);color:#4ade80;' : 'background:rgba(99,102,241,0.15);color:#a5b4fc;'">
           <Wrench :size="11" class="mr-1" />
-          {{ inProgressCount }} en cours
+          {{ activeCount }} {{ showDone ? 'terminés' : 'en cours' }}
         </span>
       </template>
     </PageHeader>
 
     <div class="flex items-center gap-2 mb-4">
-      <div class="flex items-center gap-2 flex-1 max-w-xs rounded-xl px-3 py-2.5 text-sm"
+      <button
+        class="px-4 py-2 rounded-lg text-sm font-medium transition"
+        :class="!showDone ? 'text-indigo-300 bg-indigo-500/10 border border-indigo-500/25' : 'text-slate-400 hover:text-slate-300 border border-transparent'"
+        @click="showDone = false"
+      >
+        En cours ({{ (items.value || []).filter(i => !isTerminated(i.statut)).length }})
+      </button>
+      <button
+        class="px-4 py-2 rounded-lg text-sm font-medium transition"
+        :class="showDone ? 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/25' : 'text-slate-400 hover:text-slate-300 border border-transparent'"
+        @click="showDone = true"
+      >
+        Terminés ({{ (items.value || []).filter(i => isTerminated(i.statut)).length }})
+      </button>
+      <div class="flex items-center gap-2 flex-1 max-w-xs rounded-xl px-3 py-2.5 text-sm ml-auto"
         style="background:rgba(8,12,30,0.8);border:1px solid rgba(255,255,255,0.08);">
         <Search :size="15" class="text-slate-500 flex-shrink-0" />
         <input v-model="query" placeholder="Filtrer…" class="bg-transparent outline-none text-slate-200 placeholder-slate-600 w-full" />
@@ -253,7 +283,7 @@ function badgeStyle(statut) {
 
     <DataTable
       :columns="columns"
-      :rows="filtered"
+      :rows="tabFiltered"
       :loading="loading"
       :show-actions="true"
       empty-text="Aucune intervention assignée."
@@ -281,6 +311,7 @@ function badgeStyle(statut) {
       <template #actions="{ row }">
         <div class="flex items-center gap-1.5">
           <button
+            v-if="!isTerminated(row.statut)"
             class="btn btn-sm gap-1"
             style="background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);"
             title="Ajouter une intervention"
@@ -441,17 +472,17 @@ function badgeStyle(statut) {
             <CheckSquare :size="14" class="text-indigo-400" />
             <span class="text-sm font-semibold text-slate-300">
               Demandes disponibles
-              <span v-if="batchSelected.length" class="badge badge-gray ml-1">{{ batchSelected.length }}/{{ items.length }}</span>
+               <span v-if="batchSelected.length" class="badge badge-gray ml-1">{{ batchSelected.length }}/{{ batchItems.length }}</span>
             </span>
           </div>
 
-          <div v-if="items.length === 0" class="text-sm text-slate-600 py-4 text-center">
+          <div v-if="batchItems.length === 0" class="text-sm text-slate-600 py-4 text-center">
             Aucune demande en cours.
           </div>
 
           <div v-else class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
             <label
-              v-for="row in items"
+              v-for="row in batchItems"
               :key="row.id"
               class="flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition"
               :style="isBatchSelected(row.id)

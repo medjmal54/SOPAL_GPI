@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, ArrowLeft, UserCheck, MapPin, RotateCcw, Clock, Tag, Hash,
   CalendarDays, Building2, Briefcase, FileText, ChevronRight,
-  Pencil, Trash2, Wrench, CheckCircle, AlertTriangle
+  Pencil, Trash2, Wrench, CheckCircle, AlertTriangle, List
 } from 'lucide-vue-next'
 import PageHeader from '../components/PageHeader.vue'
 import Modal      from '../components/Modal.vue'

@@ -37,9 +37,10 @@ async function loadData() {
 onMounted(loadData)
 
 const filtered = computed(() => {
-  if (!query.value) return items.value
+  const list = items.value || []
+  if (!query.value) return list
   const q = query.value.toLowerCase()
-  return items.value.filter(i => JSON.stringify(i).toLowerCase().includes(q))
+  return list.filter(i => JSON.stringify(i).toLowerCase().includes(q))
 })
 
 const columns = [

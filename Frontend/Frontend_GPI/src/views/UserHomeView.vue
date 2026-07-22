@@ -42,9 +42,10 @@ onMounted(async () => {
 })
 
 const filtered = computed(() => {
-  if (!query.value) return materials.value
+  const list = materials.value || []
+  if (!query.value) return list
   const q = query.value.toLowerCase()
-  return materials.value.filter(m => JSON.stringify(m).toLowerCase().includes(q))
+  return list.filter(m => JSON.stringify(m).toLowerCase().includes(q))
 })
 
 function raw(mat, k1, k2) {

@@ -77,9 +77,10 @@ watch(signalRequests, (newRequests) => {
 }, { deep: true })
 
 const filtered = computed(() => {
-  if (!query.value) return items.value
+  const list = items.value || []
+  if (!query.value) return list
   const q = query.value.toLowerCase()
-  return items.value.filter(i => JSON.stringify(i).toLowerCase().includes(q))
+  return list.filter(i => JSON.stringify(i).toLowerCase().includes(q))
 })
 
 function materialName(id) {
@@ -218,8 +219,14 @@ async function toggleMaintenanceStatus(row) {
   }
 }
 
+const isEnCours = computed(() => {
+  if (!selectedRequest.value) return false
+  return (selectedRequest.value.statut ?? selectedRequest.value.Statut) === 'En cours'
+})
+
 const filteredUserMats = computed(() => {
-  return materials.value.filter(m => (m.employeMat ?? m.EmployeMat) === state.matricule)
+  const list = materials.value || []
+  return list.filter(m => (m.employeMat ?? m.EmployeMat) === state.matricule)
 })
 </script>
 
@@ -302,7 +309,7 @@ const filteredUserMats = computed(() => {
           Intervenir
         </button>
         <button
-          v-else-if="(row.statut ?? row.Statut) === 'En cours'"
+          v-else-if="(row.statut ?? row.Statut) === 'En cours' || (row.statut ?? row.Statut) === 'Terminé'"
           class="btn btn-sm"
           style="background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);"
           @click="openIntervDetail(row)"
@@ -352,7 +359,8 @@ const filteredUserMats = computed(() => {
       v-if="showIntervDetail"
       :title="`Intervention — ${materialName(selectedRequest?.materielId)}`"
       size="lg"
-      confirm-text="Ajouter"
+      :hide-footer="!isEnCours"
+      :confirm-text="isEnCours ? 'Ajouter' : ''"
       :loading="saving"
       @close="showIntervDetail = false"
       @confirm="submitInterv"
@@ -412,7 +420,7 @@ const filteredUserMats = computed(() => {
         </div>
 
         <!-- New Intervention Form -->
-        <div>
+        <div v-if="isEnCours">
           <div class="flex items-center gap-2 mb-2">
             <Wrench :size="14" class="text-amber-400" />
             <span class="text-sm font-semibold text-slate-300">Nouvelle intervention</span>

@@ -18,6 +18,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend)
 
 const router = useRouter()
 const loading = ref(true)
+const error = ref(null)
 const stats   = ref({ materials: 0, employees: 0, movements: 0, localisations: 0 })
 const recentMovements = ref([])
 const allMovements = ref([])
@@ -42,6 +43,8 @@ onMounted(async () => {
     }
     allMovements.value = Array.isArray(movements) ? movements : []
     recentMovements.value = Array.isArray(movements) ? movements.slice(-6).reverse() : []
+  } catch (e) {
+    error.value = e.message || 'Erreur de chargement du tableau de bord.'
   } finally {
     loading.value = false
   }

@@ -15,6 +15,7 @@ const router = useRouter()
 
 // ─── State ───
 const items   = ref([])
+const matypes = ref([])
 const loading = ref(true)
 const query   = ref('')
 
@@ -41,8 +42,12 @@ const form = ref(emptyForm())
 async function loadData() {
   loading.value = true
   try {
-    const mats = await apiGet('/Materials')
+    const [mats, types] = await Promise.all([
+      apiGet('/Materials'),
+      apiGet('/Matypes'),
+    ])
     items.value = Array.isArray(mats) ? mats : []
+    matypes.value = Array.isArray(types) ? types : []
   } catch (e) {
     toastError(e.message || 'Erreur de chargement.')
   } finally {
@@ -54,9 +59,10 @@ onMounted(loadData)
 
 // ─── Filter ───
 const filtered = computed(() => {
-  if (!query.value) return items.value
+  const list = items.value || []
+  if (!query.value) return list
   const q = query.value.toLowerCase()
-  return items.value.filter(i =>
+  return list.filter(i =>
     JSON.stringify(i).toLowerCase().includes(q)
   )
 })
@@ -109,7 +115,7 @@ function openEdit(row) {
     numSerie:        row.numSerie        ?? '',
     dateAcquisition: row.dateAcquisition ?? '',
     actif:           row.actif           ?? true,
-    typeMaterielId:  row.typeMaterielId  ?? 1,
+    typeMaterielId:  row.typeMaterielId  ?? row.TypeMaterielId ?? 1,
     commentaires:    row.commentaires    ?? '',
   }
   showEdit.value = true
@@ -118,7 +124,7 @@ async function submitEdit() {
   if (!selected.value) return
   saving.value = true
   try {
-    await apiPut(`/Materials?id=${selected.value.id}`, {
+    await apiPut(`/Materials/${selected.value.id}`, {
       libelle:         form.value.libelle,
       marque:          form.value.marque,
       modele:          form.value.modele,
@@ -248,6 +254,14 @@ async function submitDel() {
           <input v-model="form.dateAcquisition" type="date" class="form-input" />
         </div>
         <div class="form-group">
+          <label class="form-label">Type de matériel</label>
+          <select v-model="form.typeMaterielId" class="form-input">
+            <option v-for="t in matypes" :key="t.id ?? t.Id" :value="t.id ?? t.Id">
+              {{ t.libelle ?? t.Libelle }}
+            </option>
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label">Statut</label>
           <select v-model="form.actif" class="form-input">
             <option :value="true">Actif</option>
@@ -290,6 +304,14 @@ async function submitDel() {
         <div class="form-group">
           <label class="form-label">Date d'acquisition</label>
           <input v-model="form.dateAcquisition" type="date" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type de matériel</label>
+          <select v-model="form.typeMaterielId" class="form-input">
+            <option v-for="t in matypes" :key="t.id ?? t.Id" :value="t.id ?? t.Id">
+              {{ t.libelle ?? t.Libelle }}
+            </option>
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">Statut</label>

@@ -9,11 +9,11 @@ const isLoginPage = computed(() => route.path === '/login')
 </script>
 
 <template>
-  <template v-if="isLoginPage">
-    <router-view />
-  </template>
-  <template v-else>
-    <Sidebar />
-  </template>
+  <Sidebar v-if="!isLoginPage" />
+  <router-view v-slot="{ Component }">
+    <transition name="page" mode="out-in">
+      <component :is="Component" />
+    </transition>
+  </router-view>
   <ToastNotification />
 </template>

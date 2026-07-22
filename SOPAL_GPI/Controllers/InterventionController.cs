@@ -42,17 +42,20 @@ public class InterventionController(IinterventionRepositroy interventionRepositr
     public async Task<ActionResult<Intervention>> AddIntervAsync(InterventionDTO interv)
     {
         var entity = mapper.Map<Intervention>(interv);
-        var matricule = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-        entity.IntervenantId = matricule;
+        var matriculeClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (matriculeClaim is null) return Unauthorized(new { message = "Claim manquant." });
+        entity.IntervenantId = int.Parse(matriculeClaim);
         await interventionRepositroy.AddAsync(entity);
-        return CreatedAtAction("GetByIdAsync", new { id = entity.Id }, interv);
+        return Created($"{Request.Path}/{entity.Id}", entity);
     }
 
     [HttpPost("batch")]
     [Authorize(Roles = "Admin")]
     public async Task<ActionResult> AddBatchAsync(BatchInterventionDTO batch)
     {
-        var matricule = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+        var matriculeClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (matriculeClaim is null) return Unauthorized(new { message = "Claim manquant." });
+        var matricule = int.Parse(matriculeClaim);
         var entities = batch.Items.Select(item => new Intervention
         {
             Commentaires = batch.Commentaires,
