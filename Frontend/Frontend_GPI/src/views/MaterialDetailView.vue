@@ -425,6 +425,9 @@ onMounted(loadAll)
                   </span>
                   <span v-else-if="(m.typmov ?? m.Typmov) === 4">
                     Demande d'intervention — <strong>{{ m.commentaires || 'Maintenance' }}</strong>
+                    <span v-if="(m.employeMat ?? m.EmployeMat)" class="text-xs text-slate-400">
+                      intervenu par : <strong class="text-slate-300">{{ employeeName(m.employeMat ?? m.EmployeMat) }}</strong>
+                    </span>
                     <span v-if="m.statut ?? m.Statut" class="ml-2">
                       <span v-if="(m.statut ?? m.Statut) === 'Terminé'" class="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
                         <CheckCircle :size="10" />

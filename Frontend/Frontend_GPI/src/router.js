@@ -9,7 +9,6 @@ import MouvementsView from './views/MouvementsView.vue'
 import EmployesView from './views/EmployesView.vue'
 import RequestsView from './views/RequestsView.vue'
 import MyInterventionsView from './views/MyInterventionsView.vue'
-import LocalisationsView from './views/LocalisationsView.vue'
 
 const routes = [
   { path: '/login', component: LoginView, meta: { public: true } },
@@ -19,7 +18,6 @@ const routes = [
   { path: '/materiels', component: MaterielsView, meta: { adminOnly: true } },
   { path: '/materiels/:id', component: MaterialDetailView, meta: { adminOnly: true } },
   { path: '/mouvements', component: MouvementsView, meta: { adminOnly: true } },
-  { path: '/localisations', component: LocalisationsView, meta: { adminOnly: true } },
   { path: '/employes', component: EmployesView, meta: { adminOnly: true } },
   { path: '/demandes', component: RequestsView },
   { path: '/mes-interventions', component: MyInterventionsView, meta: { adminOnly: true } },

@@ -252,27 +252,32 @@ function badgeStyle(statut) {
       :icon="Wrench"
     >
       <template #actions>
-        <span class="badge" :style="showDone ? 'background:rgba(34,197,94,0.15);color:#4ade80;' : 'background:rgba(99,102,241,0.15);color:#a5b4fc;'">
-          <Wrench :size="11" class="mr-1" />
-          {{ activeCount }} {{ showDone ? 'terminés' : 'en cours' }}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="badge" :style="showDone ? 'background:rgba(34,197,94,0.15);color:#4ade80;' : 'background:rgba(99,102,241,0.15);color:#a5b4fc;'">
+            <Wrench :size="11" class="mr-1" />
+            {{ activeCount }} {{ showDone ? 'terminés' : 'en cours' }}
+          </span>
+          <span class="badge badge-gray">
+            Total {{ items.value?.length ?? 0 }}
+          </span>
+        </div>
       </template>
     </PageHeader>
 
     <div class="flex items-center gap-2 mb-4">
       <button
-        class="px-4 py-2 rounded-lg text-sm font-medium transition"
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
         :class="!showDone ? 'text-indigo-300 bg-indigo-500/10 border border-indigo-500/25' : 'text-slate-400 hover:text-slate-300 border border-transparent'"
         @click="showDone = false"
       >
-        En cours ({{ (items.value || []).filter(i => !isTerminated(i.statut)).length }})
+        <span>En cours</span>
       </button>
       <button
-        class="px-4 py-2 rounded-lg text-sm font-medium transition"
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
         :class="showDone ? 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/25' : 'text-slate-400 hover:text-slate-300 border border-transparent'"
         @click="showDone = true"
       >
-        Terminés ({{ (items.value || []).filter(i => isTerminated(i.statut)).length }})
+        <span>Terminés</span>
       </button>
       <div class="flex items-center gap-2 flex-1 max-w-xs rounded-xl px-3 py-2.5 text-sm ml-auto"
         style="background:rgba(8,12,30,0.8);border:1px solid rgba(255,255,255,0.08);">
