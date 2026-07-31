@@ -4,7 +4,6 @@ import LoginView from './views/LoginView.vue'
 import DashboardView from './views/DashboardView.vue'
 import UserHomeView from './views/UserHomeView.vue'
 import MaterielsView from './views/MaterielsView.vue'
-import MaterialDetailView from './views/MaterialDetailView.vue'
 import MouvementsView from './views/MouvementsView.vue'
 import EmployesView from './views/EmployesView.vue'
 import RequestsView from './views/RequestsView.vue'
@@ -16,7 +15,7 @@ const routes = [
   { path: '/dashboard', component: DashboardView, meta: { adminOnly: true } },
   { path: '/mes-materiels', component: UserHomeView },
   { path: '/materiels', component: MaterielsView, meta: { adminOnly: true } },
-  { path: '/materiels/:id', component: MaterialDetailView, meta: { adminOnly: true } },
+  { path: '/materiels/:id', redirect: to => ({ path: '/materiels', query: { asset: to.params.id } }), meta: { adminOnly: true } },
   { path: '/mouvements', component: MouvementsView, meta: { adminOnly: true } },
   { path: '/employes', component: EmployesView, meta: { adminOnly: true } },
   { path: '/demandes', component: RequestsView },

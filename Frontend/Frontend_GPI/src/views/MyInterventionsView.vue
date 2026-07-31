@@ -1,8 +1,5 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Wrench, Search, Eye, ToggleLeft, ToggleRight, List, Plus, CheckSquare, CircleCheck } from 'lucide-vue-next'
-import PageHeader from '../components/PageHeader.vue'
-import DataTable from '../components/DataTable.vue'
 import Modal from '../components/Modal.vue'
 import { apiGet, apiPost, apiPut } from '../services/api'
 import { useAuth } from '../services/auth'
@@ -22,11 +19,6 @@ const selectedRequest = ref(null)
 const interventions = ref([])
 const loadingInterv = ref(false)
 
-const showBatch = ref(false)
-const batchSelected = ref([])
-const batchComment = ref('')
-const batchSaving = ref(false)
-
 const showAddSingle = ref(false)
 const addSingleRequest = ref(null)
 const addSingleComment = ref('')
@@ -36,9 +28,7 @@ async function loadData() {
   loading.value = true
   try {
     const [reqs, mats, emps] = await Promise.all([
-      apiGet('/v1/mouvements/my-interventions'),
-      apiGet('/Materials'),
-      apiGet('/Employes'),
+      apiGet('/v1/mouvements/my-interventions'), apiGet('/Materials'), apiGet('/Employes'),
     ])
     items.value = Array.isArray(reqs) ? reqs : []
     materials.value = Array.isArray(mats) ? mats : []
@@ -72,59 +62,29 @@ function formatDate(d) {
   return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function statusLabel(statut) {
-  return statut || 'En cours'
-}
-
-function isTerminated(statut) {
-  return statusLabel(statut) === 'Terminé'
-}
+function isTerminated(statut) { return statut === 'Terminé' }
 
 const showDone = ref(false)
 
-const activeCount = computed(() => (showDone.value
-  ? (items.value || []).filter(i => isTerminated(i.statut)).length
-  : (items.value || []).filter(i => !isTerminated(i.statut)).length))
-
-const batchItems = computed(() => (showDone.value
-  ? (items.value || []).filter(i => isTerminated(i.statut))
-  : (items.value || [])))
+const activeCount = computed(() => {
+  const list = items.value || []
+  return showDone.value
+    ? list.filter(i => isTerminated(i.statut)).length
+    : list.filter(i => !isTerminated(i.statut)).length
+})
 
 const tabFiltered = computed(() => {
   const list = items.value || []
-  let result = showDone.value
-    ? list.filter(i => isTerminated(i.statut))
-    : list.filter(i => !isTerminated(i.statut))
+  let result = showDone.value ? list.filter(i => isTerminated(i.statut)) : list.filter(i => !isTerminated(i.statut))
   if (query.value) {
     const q = query.value.toLowerCase()
     result = result.filter(item => {
-      const search = [
-        item.commentaires,
-        item.statut,
-        item.dateMouvement,
-        materialName(item.materielId),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
+      const search = [item.commentaires, item.statut, item.dateMouvement, materialName(item.materielId)].filter(Boolean).join(' ').toLowerCase()
       return search.includes(q)
     })
   }
   return result
 })
-
-const columns = [
-  { key: 'dateMouvement', label: 'Date', sortable: true },
-  { key: 'materielId', label: 'Matériel', sortable: true },
-  { key: 'commentaires', label: 'Description', sortable: false },
-  { key: 'statut', label: 'Statut', sortable: true },
-]
-
-function openDetail(row) {
-  selectedRequest.value = row
-  showDetail.value = true
-  loadInterventions(row.id ?? row.Id)
-}
 
 async function loadInterventions(mouvementId) {
   loadingInterv.value = true
@@ -132,11 +92,14 @@ async function loadInterventions(mouvementId) {
   try {
     const data = await apiGet(`/Intervention/by-mouvement/${mouvementId}`)
     interventions.value = Array.isArray(data) ? data : []
-  } catch (e) {
-    toastError(e.message || 'Erreur de chargement des interventions.')
-  } finally {
-    loadingInterv.value = false
-  }
+  } catch (e) { toastError(e.message || 'Erreur de chargement.')
+  } finally { loadingInterv.value = false }
+}
+
+function openDetail(row) {
+  selectedRequest.value = row
+  showDetail.value = true
+  loadInterventions(row.id ?? row.Id)
 }
 
 async function toggleStatus(row) {
@@ -145,59 +108,9 @@ async function toggleStatus(row) {
     const res = await apiPut(`/v1/mouvements/${id}/toggle-resolve`)
     const list = items.value || []
     const idx = list.findIndex(i => (i.id ?? i.Id) === id)
-    if (idx !== -1) {
-      list[idx] = { ...list[idx], statut: res.statut }
-    }
+    if (idx !== -1) list[idx] = { ...list[idx], statut: res.statut }
     success(res.message || 'Statut mis à jour.')
-  } catch (e) {
-    toastError(e.message || 'Erreur lors du changement de statut.')
-  }
-}
-
-async function confirmToggleStatusFromDetail() {
-  await toggleStatus(selectedRequest.value)
-  showDetail.value = false
-  await loadData()
-}
-
-function openBatch() {
-  batchSelected.value = []
-  batchComment.value = ''
-  showBatch.value = true
-}
-
-function toggleBatchSelect(rowId) {
-  const idx = batchSelected.value.indexOf(rowId)
-  if (idx === -1) batchSelected.value.push(rowId)
-  else batchSelected.value.splice(idx, 1)
-}
-
-function isBatchSelected(rowId) {
-  return batchSelected.value.includes(rowId)
-}
-
-async function submitBatch() {
-  if (!batchSelected.value.length || !batchComment.value) return
-  batchSaving.value = true
-  try {
-    const list = items.value || []
-    const itemsPayload = batchSelected.value.map(id => {
-      const row = list.find(i => (i.id ?? i.Id) === id)
-      return { matId: row?.materielId ?? row?.MaterielId, maintId: id }
-    })
-    await apiPost('/Intervention/batch', {
-      commentaires: batchComment.value,
-      date: new Date().toISOString().split('T')[0],
-      items: itemsPayload,
-    })
-    success(`${itemsPayload.length} intervention(s) créée(s).`)
-    showBatch.value = false
-    await loadData()
-  } catch (e) {
-    toastError(e.message || "Erreur lors de l'ajout multiple.")
-  } finally {
-    batchSaving.value = false
-  }
+  } catch (e) { toastError(e.message || 'Erreur.') }
 }
 
 function openAddSingle(row) {
@@ -218,303 +131,128 @@ async function submitAddSingle() {
     })
     success('Intervention enregistrée.')
     showAddSingle.value = false
-  } catch (e) {
-    toastError(e.message || "Erreur lors de l'ajout.")
-  } finally {
-    addSingleSaving.value = false
-  }
-}
-
-function interventionProgress(statut) {
-  if (isTerminated(statut)) return 100
-  if (statusLabel(statut) === 'En cours') return 50
-  return 0
-}
-
-function progressGradient(statut) {
-  if (isTerminated(statut)) return 'linear-gradient(90deg,#22c55e,#4ade80)'
-  if (statusLabel(statut) === 'En cours') return 'linear-gradient(90deg,#6366f1,#818cf8)'
-  return '#475569'
-}
-
-function badgeStyle(statut) {
-  if (isTerminated(statut)) return 'background:rgba(34,197,94,0.15);color:#4ade80;'
-  if (statusLabel(statut) === 'En cours') return 'background:rgba(99,102,241,0.15);color:#a5b4fc;'
-  return 'background:rgba(148,163,184,0.15);color:#94a3b8;'
+  } catch (e) { toastError(e.message || 'Erreur.')
+  } finally { addSingleSaving.value = false }
 }
 </script>
 
 <template>
   <div>
-    <PageHeader
-      title="Mes Interventions"
-      description="Gérez les demandes que vous avez prises en charge."
-      :icon="Wrench"
-    >
-      <template #actions>
-        <div class="flex items-center gap-2">
-          <span class="badge" :style="showDone ? 'background:rgba(34,197,94,0.15);color:#4ade80;' : 'background:rgba(99,102,241,0.15);color:#a5b4fc;'">
-            <Wrench :size="11" class="mr-1" />
-            {{ activeCount }} {{ showDone ? 'terminés' : 'en cours' }}
-          </span>
-          <span class="badge badge-gray">
-            Total {{ items.value?.length ?? 0 }}
-          </span>
-        </div>
-      </template>
-    </PageHeader>
-
-    <div class="flex items-center gap-2 mb-4">
-      <button
-        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
-        :class="!showDone ? 'text-indigo-300 bg-indigo-500/10 border border-indigo-500/25' : 'text-slate-400 hover:text-slate-300 border border-transparent'"
-        @click="showDone = false"
-      >
-        <span>En cours</span>
-      </button>
-      <button
-        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition"
-        :class="showDone ? 'text-emerald-300 bg-emerald-500/10 border border-emerald-500/25' : 'text-slate-400 hover:text-slate-300 border border-transparent'"
-        @click="showDone = true"
-      >
-        <span>Terminés</span>
-      </button>
-      <div class="flex items-center gap-2 flex-1 max-w-xs rounded-xl px-3 py-2.5 text-sm ml-auto"
-        style="background:rgba(8,12,30,0.8);border:1px solid rgba(255,255,255,0.08);">
-        <Search :size="15" class="text-slate-500 flex-shrink-0" />
-        <input v-model="query" placeholder="Filtrer…" class="bg-transparent outline-none text-slate-200 placeholder-slate-600 w-full" />
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h2 class="font-headline-md text-headline-md font-bold text-on-surface">Mes Interventions</h2>
+        <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Demandes prises en charge</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="status-chip" :class="showDone ? 'affecte' : 'en-stock-blue'">
+          {{ activeCount }} {{ showDone ? 'terminés' : 'en cours' }}
+        </span>
+        <span class="font-label-sm bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant text-on-surface-variant">
+          Total {{ items.value?.length ?? 0 }}
+        </span>
       </div>
     </div>
 
-    <DataTable
-      :columns="columns"
-      :rows="tabFiltered"
-      :loading="loading"
-      :show-actions="true"
-      empty-text="Aucune intervention assignée."
-    >
-      <template #cell-dateMouvement="{ value }">
-        <span class="text-slate-400 text-xs">{{ formatDate(value) }}</span>
-      </template>
-      <template #cell-materielId="{ value }">
-        <span class="text-slate-300">{{ materialName(value) }}</span>
-      </template>
-      <template #cell-commentaires="{ value }">
-        <span class="text-slate-400 text-sm truncate block max-w-xs">{{ value }}</span>
-      </template>
-      <template #cell-statut="{ value, row }">
-        <button
-          class="inline-flex items-center gap-1.5 text-xs font-medium transition cursor-pointer"
-          :class="[isTerminated(value) ? 'text-emerald-400 hover:text-emerald-300' : 'text-indigo-400 hover:text-indigo-300']"
-          @click="toggleStatus(row)"
-        >
-          <ToggleRight v-if="isTerminated(value)" :size="14" />
-          <ToggleLeft v-else :size="14" />
-          {{ statusLabel(value) }}
-        </button>
-      </template>
-      <template #actions="{ row }">
-        <div class="flex items-center gap-1.5">
-          <button
-            v-if="!isTerminated(row.statut)"
-            class="btn btn-sm gap-1"
-            style="background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);"
-            title="Ajouter une intervention"
-            @click="openAddSingle(row)"
-          >
-            <Plus :size="12" />
-            Ajouter
-          </button>
-          <button
-            class="btn btn-sm gap-1"
-            style="background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);"
-            title="Voir les interventions"
-            @click="openDetail(row)"
-          >
-            <Eye :size="12" />
-            Détails
-          </button>
-        </div>
-      </template>
-    </DataTable>
+    <div class="flex items-center gap-2 mb-4">
+      <button @click="showDone = false" class="px-4 py-1.5 rounded-lg font-label-md text-label-md transition" :class="!showDone ? 'bg-secondary-container text-on-secondary-container font-bold' : 'text-on-surface-variant border border-outline-variant hover:bg-surface-container-high'">
+        En cours
+      </button>
+      <button @click="showDone = true" class="px-4 py-1.5 rounded-lg font-label-md text-label-md transition" :class="showDone ? 'bg-tertiary/20 text-tertiary font-bold' : 'text-on-surface-variant border border-outline-variant hover:bg-surface-container-high'">
+        Terminés
+      </button>
+      <div class="relative flex-1 max-w-xs ml-auto">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">search</span>
+        <input v-model="query" class="w-full bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-1.5 font-label-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Filtrer..." type="text">
+      </div>
+    </div>
 
-    <!-- Detail Modal -->
-    <Modal
-      v-if="showDetail"
-      :title="`Intervention — ${materialName(selectedRequest?.materielId)}`"
-      size="lg"
-      hide-footer
-      @close="showDetail = false"
-    >
-      <div class="space-y-5">
-        <div class="rounded-xl p-3" style="background:rgba(8,12,30,0.6);border:1px solid rgba(255,255,255,0.06);">
-          <div class="text-xs text-slate-500 mb-1">Description de la panne</div>
-          <p class="text-sm text-slate-300">{{ selectedRequest?.commentaires || 'Aucune description.' }}</p>
-        </div>
+    <div v-if="loading" class="flex items-center justify-center py-24"><div class="spinner" /></div>
 
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2">
-              <CircleCheck :size="14" class="text-indigo-400" />
-              <span class="text-sm font-semibold text-slate-300">Progression</span>
+    <div v-else-if="tabFiltered.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
+      <span class="material-symbols-outlined text-[48px] text-on-surface-variant">handyman</span>
+      <p class="font-body-md text-body-md text-on-surface-variant mt-3">Aucune intervention assignée.</p>
+    </div>
+
+    <div v-else class="space-y-3">
+      <div v-for="row in tabFiltered" :key="row.id ?? row.Id" class="bg-surface-container border border-outline-variant rounded-lg p-4 hover:bg-surface-container-high transition-colors">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-3 flex-1 min-w-0">
+            <div class="w-9 h-9 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0" :class="isTerminated(row.statut) ? 'border-tertiary/30' : 'border-primary/30'">
+              <span class="material-symbols-outlined text-[18px]" :class="isTerminated(row.statut) ? 'text-tertiary' : 'text-primary'">handyman</span>
             </div>
-            <span class="text-xs font-medium px-2 py-0.5 rounded-full" :style="badgeStyle(selectedRequest?.statut)">
-              {{ statusLabel(selectedRequest?.statut) }}
-            </span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="font-label-md text-label-md font-bold text-on-surface">{{ materialName(row.materielId ?? row.MaterielId) }}</span>
+                <span :class="isTerminated(row.statut) ? 'status-chip affecte' : 'status-chip en-stock-blue'">{{ row.statut || 'En cours' }}</span>
+              </div>
+              <p class="font-body-sm text-body-sm text-on-surface-variant truncate">{{ row.commentaires || 'Aucune description' }}</p>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="font-label-sm text-label-sm text-on-surface-variant">{{ formatDate(row.dateMouvement ?? row.DateMouvement) }}</span>
+              </div>
+            </div>
           </div>
-          <div class="w-full h-2 rounded-full overflow-hidden" style="background:rgba(255,255,255,0.06);">
-            <div class="h-full rounded-full transition-all duration-500" :style="{
-              width: interventionProgress(selectedRequest?.statut) + '%',
-              background: progressGradient(selectedRequest?.statut)
-            }" />
-          </div>
-          <div class="flex justify-between mt-1.5">
-            <span class="text-xs text-slate-600">0%</span>
-            <span class="text-xs text-slate-600">{{ interventionProgress(selectedRequest?.statut) }}%</span>
-            <span class="text-xs text-slate-600">100%</span>
+          <div class="flex items-center gap-2 shrink-0">
+            <button @click="openAddSingle(row)" v-if="!isTerminated(row.statut)" class="btn btn-sm" style="background:rgba(78,222,163,0.1);color:#4edea3;border:1px solid rgba(78,222,163,0.3);">
+              <span class="material-symbols-outlined text-[14px]">add</span> Ajouter
+            </button>
+            <button @click="openDetail(row)" class="btn btn-sm btn-ghost">
+              <span class="material-symbols-outlined text-[14px]">visibility</span> Détails
+            </button>
+            <button @click="toggleStatus(row)" class="btn btn-sm" :class="isTerminated(row.statut) ? 'btn-ghost' : 'btn-primary'">
+              <span class="material-symbols-outlined text-[14px]">{{ isTerminated(row.statut) ? 'undo' : 'check_circle' }}</span>
+            </button>
           </div>
         </div>
+      </div>
+    </div>
 
+    <Modal v-if="showDetail" :title="`Intervention — ${materialName(selectedRequest?.materielId)}`" size="lg" hide-footer @close="showDetail = false">
+      <div class="space-y-5">
+        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-3">
+          <div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Description</div>
+          <p class="font-body-sm text-body-sm text-on-surface">{{ selectedRequest?.commentaires || 'Aucune description.' }}</p>
+        </div>
         <div>
-          <div class="flex items-center gap-2 mb-3">
-            <List :size="14" class="text-indigo-400" />
-            <span class="text-sm font-semibold text-slate-300">
-              Interventions existantes
-              <span v-if="interventions.length" class="badge badge-gray ml-1">{{ interventions.length }}</span>
-            </span>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="material-symbols-outlined text-primary text-[18px]">list</span>
+            <span class="font-headline-sm text-headline-sm text-on-surface">Interventions</span>
+            <span v-if="interventions.length" class="font-label-sm bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant text-on-surface-variant ml-1">{{ interventions.length }}</span>
           </div>
-
-          <div v-if="loadingInterv" class="flex items-center justify-center py-6">
-            <div class="spinner" style="width:20px;height:20px;" />
-          </div>
-          <div v-else-if="interventions.length === 0" class="text-sm text-slate-600 py-4 text-center">
-            Aucune intervention enregistrée pour le moment.
-          </div>
-          <div v-else class="space-y-2 max-h-48 overflow-y-auto pr-1">
-            <div
-              v-for="(interv, idx) in interventions"
-              :key="interv.id"
-              class="rounded-xl p-3 flex items-start gap-3"
-              style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);"
-            >
-              <div
-                class="flex-shrink-0 flex items-center justify-center rounded-full mt-0.5"
-                style="width:28px;height:28px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.25);"
-              >
-                <span class="text-xs font-bold text-indigo-400">{{ idx + 1 }}</span>
+          <div v-if="loadingInterv" class="flex items-center justify-center py-6"><div class="spinner" /></div>
+          <div v-else-if="interventions.length === 0" class="font-body-sm text-body-sm text-on-surface-variant py-4 text-center">Aucune intervention.</div>
+          <div v-else class="space-y-2 max-h-48 overflow-y-auto">
+            <div v-for="(interv, idx) in interventions" :key="interv.id" class="bg-surface-container-low border border-outline-variant rounded-lg p-3 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-full bg-primary-container/20 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="font-label-sm text-label-sm text-primary font-bold">{{ idx + 1 }}</span>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="text-xs text-slate-500">{{ formatDate(interv.date) }}</span>
-                  <span v-if="interv.intervenantId" class="text-xs text-slate-600">
-                    — {{ employeeName(interv.intervenantId) }}
-                  </span>
+                  <span class="font-label-sm text-label-sm text-on-surface-variant">{{ formatDate(interv.date) }}</span>
+                  <span v-if="interv.intervenantId" class="font-label-sm text-label-sm text-on-surface-variant">— {{ employeeName(interv.intervenantId) }}</span>
                 </div>
-                <p class="text-sm text-slate-300">{{ interv.commentaires }}</p>
+                <p class="font-body-md text-body-md text-on-surface">{{ interv.commentaires }}</p>
               </div>
             </div>
           </div>
         </div>
-
-        <div class="pt-2" style="border-top:1px solid rgba(255,255,255,0.06);">
-          <button
-            class="btn w-full justify-center gap-2"
-            :style="isTerminated(selectedRequest?.statut)
-              ? 'background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);'
-              : 'background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);'"
-            @click="confirmToggleStatusFromDetail"
-          >
-            <ToggleRight v-if="isTerminated(selectedRequest?.statut)" :size="15" />
-            <ToggleLeft v-else :size="15" />
+        <div class="pt-2 border-t border-outline-variant/30">
+          <button @click="toggleStatus(selectedRequest); showDetail = false; loadData()" class="btn w-full justify-center gap-2" :class="isTerminated(selectedRequest?.statut) ? 'btn-ghost' : 'btn-primary'">
+            <span class="material-symbols-outlined text-[16px]">{{ isTerminated(selectedRequest?.statut) ? 'undo' : 'check_circle' }}</span>
             {{ isTerminated(selectedRequest?.statut) ? 'Marquer comme en cours' : 'Marquer comme terminé' }}
           </button>
         </div>
       </div>
     </Modal>
 
-    <!-- Add Single Modal -->
-    <Modal
-      v-if="showAddSingle"
-      :title="`Nouvelle intervention — ${materialName(addSingleRequest?.materielId)}`"
-      size="md"
-      confirm-text="Ajouter"
-      :loading="addSingleSaving"
-      @close="showAddSingle = false"
-      @confirm="submitAddSingle"
-    >
+    <Modal v-if="showAddSingle" :title="`Nouvelle intervention — ${materialName(addSingleRequest?.materielId)}`" confirm-text="Ajouter" :loading="addSingleSaving" @close="showAddSingle = false" @confirm="submitAddSingle">
       <div class="space-y-4">
-        <div class="rounded-xl p-3" style="background:rgba(8,12,30,0.6);border:1px solid rgba(255,255,255,0.06);">
-          <div class="text-xs text-slate-500 mb-1">Description de la panne</div>
-          <p class="text-sm text-slate-300">{{ addSingleRequest?.commentaires || 'Aucune description.' }}</p>
+        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-3">
+          <div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Description</div>
+          <p class="font-body-sm text-body-sm text-on-surface">{{ addSingleRequest?.commentaires || 'Aucune description.' }}</p>
         </div>
-        <div>
-          <div class="flex items-center gap-2 mb-2">
-            <Wrench :size="14" class="text-amber-400" />
-            <span class="text-sm font-semibold text-slate-300">Description de l'intervention</span>
-          </div>
-          <textarea v-model="addSingleComment" class="form-input" rows="3" placeholder="Décrivez l'intervention réalisée…" />
-        </div>
-      </div>
-    </Modal>
-
-    <!-- Batch Modal -->
-    <Modal
-      v-if="showBatch"
-      title="Intervention multiple"
-      size="lg"
-      confirm-text="Créer les interventions"
-      :loading="batchSaving"
-      @close="showBatch = false"
-      @confirm="submitBatch"
-    >
-      <div class="space-y-5">
-        <div class="text-sm text-slate-400">
-          Sélectionnez les demandes et décrivez l'intervention réalisée. Une même intervention sera créée pour chaque demande sélectionnée.
-        </div>
-
-        <div>
-          <div class="flex items-center gap-2 mb-3">
-            <CheckSquare :size="14" class="text-indigo-400" />
-            <span class="text-sm font-semibold text-slate-300">
-              Demandes disponibles
-               <span v-if="batchSelected.length" class="badge badge-gray ml-1">{{ batchSelected.length }}/{{ batchItems.length }}</span>
-            </span>
-          </div>
-
-          <div v-if="batchItems.length === 0" class="text-sm text-slate-600 py-4 text-center">
-            Aucune demande en cours.
-          </div>
-
-          <div v-else class="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-            <label
-              v-for="row in batchItems"
-              :key="row.id"
-              class="flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer transition"
-              :style="isBatchSelected(row.id)
-                ? 'background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);'
-                : 'background:rgba(8,12,30,0.6);border:1px solid rgba(255,255,255,0.06);'"
-              @click.prevent="toggleBatchSelect(row.id)"
-            >
-              <input
-                type="checkbox"
-                :checked="isBatchSelected(row.id)"
-                class="accent-indigo-500 w-4 h-4"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="text-sm text-slate-300 font-medium">{{ materialName(row.materielId) }}</div>
-                <div class="text-xs text-slate-500 truncate">{{ row.commentaires || 'Aucune description' }}</div>
-              </div>
-              <span class="text-xs text-slate-600">{{ formatDate(row.dateMouvement) }}</span>
-            </label>
-          </div>
-        </div>
-
-        <div>
-          <div class="flex items-center gap-2 mb-2">
-            <Wrench :size="14" class="text-amber-400" />
-            <span class="text-sm font-semibold text-slate-300">Description de l'intervention</span>
-          </div>
-          <textarea v-model="batchComment" class="form-input" rows="3" placeholder="Décrivez l'intervention réalisée…" />
+        <div class="form-group">
+          <label class="form-label">Intervention</label>
+          <textarea v-model="addSingleComment" class="form-input" rows="3" placeholder="Décrivez l'intervention réalisée…"></textarea>
         </div>
       </div>
     </Modal>

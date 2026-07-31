@@ -1,0 +1,63 @@
+version: '3.6'
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sopal_gpi_db
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: "SOPAL_GPI_2024!"
+      MSSQL_SA_PASSWORD: "SOPAL_GPI_2024!"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./SOPAL_GPI/DatabaseManipulation.sql:/docker-entrypoint-initdb.d/DatabaseManipulation.sql
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "SOPAL_GPI_2024!", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: on-failure
+    networks:
+      - app-network
+
+  api:
+    build:
+      context: ./SOPAL_GPI
+      dockerfile: Dockerfile
+    container_name: sopal_gpi_api
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__DefaultConnection: "Server=db;Database=SOPAL_GPI;User Id=sa;Password=SOPAL_GPI_2024!;TrustServerCertificate=True;"
+      Jwt__Key: "SOPALGPIUncaughtkey!@#$%^&*()_+-=[]{}|;':\",./<>?"
+      Jwt__Issuer: SOPAL_GPI
+      Jwt__Audience: SOPAL_GPI_Frontend
+      Cors__Frontend: "http://localhost,http://localhost:80"
+    depends_on:
+      - db
+    restart: on-failure
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./Frontend/Frontend_GPI
+      dockerfile: Dockerfile
+    container_name: sopal_gpi_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+    networks:
+      - app-network
+
+volumes:
+  sqlserver_data:
+
+networks:
+  app-network:

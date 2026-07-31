@@ -1,0 +1,405 @@
+<!DOCTYPE html><html class="dark" lang="fr" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>SOPAL GPI - Gestion des Actifs &amp; Matériels</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-error": "#690005",
+                      "surface": "#10131a",
+                      "on-secondary": "#68000a",
+                      "on-tertiary-fixed": "#002113",
+                      "inverse-primary": "#005ac2",
+                      "on-surface-variant": "#c2c6d6",
+                      "outline-variant": "#424754",
+                      "surface-container-low": "#191b23",
+                      "inverse-surface": "#e1e2ec",
+                      "outline": "#8c909f",
+                      "surface-bright": "#363941",
+                      "on-tertiary": "#003824",
+                      "surface-container-lowest": "#0b0e15",
+                      "on-secondary-container": "#ffaea8",
+                      "secondary-container": "#a40217",
+                      "on-secondary-fixed-variant": "#930013",
+                      "on-primary": "#002e6a",
+                      "primary": "#adc6ff",
+                      "surface-variant": "#32353c",
+                      "on-tertiary-container": "#00311f",
+                      "on-primary-fixed": "#001a42",
+                      "background": "#10131a",
+                      "on-secondary-fixed": "#410004",
+                      "surface-dim": "#10131a",
+                      "secondary-fixed-dim": "#ffb3ad",
+                      "surface-container-highest": "#32353c",
+                      "surface-tint": "#adc6ff",
+                      "on-error-container": "#ffdad6",
+                      "inverse-on-surface": "#2e3038",
+                      "on-tertiary-fixed-variant": "#005236",
+                      "on-primary-container": "#00285d",
+                      "on-primary-fixed-variant": "#004395",
+                      "surface-container-high": "#272a31",
+                      "tertiary-container": "#00a572",
+                      "tertiary-fixed-dim": "#4edea3",
+                      "on-background": "#e1e2ec",
+                      "secondary": "#ffb3ad",
+                      "primary-container": "#4d8eff",
+                      "error-container": "#93000a",
+                      "on-surface": "#e1e2ec",
+                      "secondary-fixed": "#ffdad7",
+                      "tertiary": "#4edea3",
+                      "primary-fixed": "#d8e2ff",
+                      "tertiary-fixed": "#6ffbbe",
+                      "surface-container": "#1d2027",
+                      "primary-fixed-dim": "#adc6ff",
+                      "error": "#ffb4ab"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "compact-gap": "8px",
+                      "container-padding": "24px",
+                      "unit": "4px",
+                      "gutter": "16px",
+                      "stack-gap": "12px"
+              },
+              "fontFamily": {
+                      "body-sm": ["Geist"],
+                      "body-lg": ["Geist"],
+                      "label-sm": ["JetBrains Mono"],
+                      "body-md": ["Geist"],
+                      "display-lg": ["Geist"],
+                      "headline-md": ["Geist"],
+                      "label-md": ["JetBrains Mono"],
+                      "headline-sm": ["Geist"]
+              },
+              "fontSize": {
+                      "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-sm": ["10px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                      "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #424754; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface h-screen flex flex-col overflow-hidden font-body-md">
+<!-- TopNavBar -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-container-padding h-16 z-50 shrink-0"><div class="flex items-center gap-container-padding">
+  <span class="font-display-lg text-display-lg font-bold text-primary">SOPAL GPI</span>
+  <div class="hidden md:flex gap-compact-gap ml-4">
+    <a class="text-on-surface-variant px-compact-gap py-unit rounded-DEFAULT hover:bg-surface-container-high transition-colors text-label-md font-label-md" href="#">Dashboard</a>
+    <a class="bg-secondary-container text-on-secondary-container px-compact-gap py-unit rounded-lg transition-opacity text-label-md font-label-md flex items-center gap-unit" href="#">
+      <span class="material-symbols-outlined text-[18px]">tune</span> Equipment
+    </a>
+    <a class="text-on-surface-variant px-compact-gap py-unit rounded-DEFAULT hover:bg-surface-container-high transition-colors text-label-md font-label-md flex items-center gap-unit" href="#">
+      <span class="material-symbols-outlined text-[18px]">inventory_2</span> Inventory
+    </a>
+    <a class="text-on-surface-variant px-compact-gap py-unit rounded-DEFAULT hover:bg-surface-container-high transition-colors text-label-md font-label-md flex items-center gap-unit" href="#">
+      <span class="material-symbols-outlined text-[18px]">build</span> Maintenance
+    </a>
+  </div>
+</div>
+<div class="flex items-center gap-stack-gap">
+  <div class="relative hidden sm:block">
+    
+    
+  </div>
+  <button class="text-on-surface-variant hover:text-on-surface transition-colors p-unit rounded-DEFAULT hover:bg-surface-container-high">
+    
+  </button>
+  
+  <div class="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant overflow-hidden shrink-0 ml-unit">
+    <img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWgqDrFfdEKdvPuBAemdNRea9II0tUHxvZrai3JFAf5u17bCkOKQQrxY7WzfezpZNxtC1r0KnDOAirflqELHTdSBs6lkpBfVVkFj259JcqJX5PnLLWSfp_YOdvKAyhV3CT0CCtN5OUs8zTD2KGlp-S0uL3BLJ-0cpjMIKrQ79x8Mvq9WUy3uHdjNK0zt8Uw5qOlRO8CJXbXAtc5Jvvnq85Q9ygqc9k5XocmZACaY1gcNUJRdN2FEkVQw">
+  </div>
+</div></header>
+<!-- Main Workspace -->
+<main class="flex flex-1 overflow-hidden">
+<!-- Left Panel: Asset List (formerly within the combined navigation sidebar) -->
+<aside class="w-[300px] bg-surface-container border-r border-outline-variant flex flex-col shrink-0">
+<div class="p-stack-gap border-b border-outline-variant shrink-0">
+<div class="flex items-center justify-between mb-stack-gap">
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Inventaire</h2>
+<span class="text-label-sm bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant text-on-surface-variant">154 Items</span>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-compact-gap top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">filter_list</span>
+<input class="w-full bg-surface border border-outline-variant rounded-DEFAULT pl-8 pr-compact-gap py-unit text-label-sm font-label-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Filtrer par Libellé, SN..." type="text">
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-compact-gap flex flex-col gap-unit">
+<!-- Asset Item 1 -->
+<button class="w-full text-left p-compact-gap bg-surface-container-highest border-l-4 border-primary rounded-r-DEFAULT flex flex-col gap-unit transition-colors">
+<div class="flex justify-between items-start w-full">
+<span class="font-label-md text-label-md text-on-surface">MAT-2024-001</span>
+<div class="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_rgba(78,222,163,0.6)]"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">PC Portable Dell XPS 15</span>
+<div class="flex flex-col gap-unit mt-unit">
+<div class="flex items-center gap-1 font-label-sm text-label-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">location_on</span> Bureau 202
+                    </div>
+<div class="flex gap-compact-gap">
+<span class="px-unit py-[2px] bg-tertiary/10 border border-tertiary/30 text-tertiary font-label-sm text-label-sm rounded">Affecté</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">person</span> J. Martin</span>
+</div>
+</div>
+</button>
+<!-- Asset Item 2 -->
+<button class="w-full text-left p-compact-gap bg-surface-container border-l-4 border-transparent hover:bg-surface-container-high rounded-r-DEFAULT flex flex-col gap-unit transition-colors">
+<div class="flex justify-between items-start w-full">
+<span class="font-label-md text-label-md text-on-surface">MAT-2024-042</span>
+<div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(173,198,255,0.6)]"></div>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate">Serveur Rack HPE ProLiant</span>
+<div class="flex flex-col gap-unit mt-unit">
+<div class="flex items-center gap-1 font-label-sm text-label-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[14px]">location_on</span> Stock Central
+                    </div>
+<div class="flex gap-compact-gap">
+<span class="px-unit py-[2px] bg-primary/10 border border-primary/30 text-primary font-label-sm text-label-sm rounded">En stock</span>
+</div>
+</div>
+</button>
+</div>
+<div class="p-stack-gap border-t border-outline-variant shrink-0">
+<button class="w-full flex items-center justify-center gap-compact-gap py-compact-gap border border-outline-variant rounded-DEFAULT text-primary hover:bg-surface-container-high transition-colors font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]">add_box</span> Nouveau Matériel
+            </button>
+</div>
+</aside>
+<!-- Center Panel: Technical Sheet & Timeline -->
+<section class="flex-1 bg-background flex flex-col min-w-0">
+<!-- Header: Identification & Status -->
+<div class="p-container-padding border-b border-outline-variant shrink-0 bg-surface">
+<div class="flex justify-between items-start mb-stack-gap">
+<div class="flex gap-stack-gap">
+<div class="w-24 h-24 bg-white p-2 rounded-lg shrink-0 border border-outline-variant">
+<img alt="QR Code" class="w-full h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCU431BMZygsgPAr6suRAq_TfL6FgmPREUvlDjNEHK1o2ASMDr2l3FGS5eACrZesHj5Ko38tpuEU9gCqhSCJVv2WYky_BAVj8P1m6vIJttDIoG3nAutk_x-EqPOodUwPT_EcNVk5BD21m0o-gPpbXVO3FD8C13rhlGbxPS48s9V0LoHtptHf2fB_HDBwuqWiQlQMJ_jvf7AKCdchqKnzRo26J8VL0YJECK4rm_FuGpe_BqldzxF7AbrUg">
+</div>
+<div>
+<div class="flex items-center gap-compact-gap mb-unit">
+<span class="material-symbols-outlined text-primary text-[28px]">laptop_mac</span>
+<h1 class="font-headline-md text-headline-md text-on-surface">PC Portable Dell XPS 15 (MAT-2024-001)</h1>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">&nbsp;Marque: Dell</p>
+<div class="flex gap-compact-gap mt-unit">
+<span class="px-2 py-0.5 bg-tertiary text-on-tertiary rounded-full text-label-sm font-bold uppercase">Affecté</span>
+<span class="px-2 py-0.5 bg-surface-container-high text-on-surface border border-outline-variant rounded-full text-label-sm">Bureau 202 (Siège)</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-unit items-end">
+<span class="font-label-sm text-on-surface-variant uppercase">Acquise</span>
+<span class="text-label-sm text-on-surface-variant italic">Le 12/01/2024</span>
+</div>
+</div>
+</div>
+<!-- Content Area -->
+<div class="flex-1 overflow-y-auto p-container-padding flex flex-col gap-container-padding">
+<!-- Fiche Technique (Technical Sheet) -->
+<div class="bg-surface border border-outline-variant rounded-xl p-container-padding">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-stack-gap flex items-center gap-compact-gap border-b border-outline-variant pb-unit">
+<span class="material-symbols-outlined text-primary">description</span> Fiche Technique
+                </h3>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-gutter gap-y-stack-gap">
+<div class="flex flex-col border-b border-outline-variant/30 pb-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Libellé Matériel</span>
+<span class="font-body-md text-body-md text-on-surface">PC Portable Dell XPS 15 9530</span>
+</div>
+<div class="flex flex-col border-b border-outline-variant/30 pb-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Marque</span>
+<span class="font-body-md text-body-md text-on-surface">Dell</span>
+</div>
+<div class="flex flex-col border-b border-outline-variant/30 pb-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Modèle</span>
+<span class="font-body-md text-body-md text-on-surface">XPS 15 High Performance</span>
+</div>
+<div class="flex flex-col border-b border-outline-variant/30 pb-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Numéro de Série</span>
+<span class="font-body-md text-body-md text-on-surface">S3RV1C3-TAG-2024</span>
+</div>
+<div class="flex flex-col border-b border-outline-variant/30 pb-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Date d'Acquisition</span>
+<span class="font-body-md text-body-md text-on-surface">12 Janvier 2024</span>
+</div>
+<div class="flex flex-col border-b border-outline-variant/30 pb-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Code-Barres</span>
+<span class="font-body-md text-body-md text-on-surface font-label-md uppercase">SOPAL-XPS-9921</span>
+</div>
+</div>
+<div class="mt-stack-gap flex flex-col gap-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Commentaires / Notes</span>
+<div class="bg-surface-container-low p-compact-gap rounded-lg border border-outline-variant text-body-sm text-on-surface-variant">
+                        Matériel affecté initialement à la DSI. Extension de garantie 3 ans incluse. Protection écran appliquée.
+                    </div>
+</div>
+</div>
+<!-- Historique des Mouvements (Movement History) -->
+<div class="bg-surface border border-outline-variant rounded-xl p-container-padding">
+<div class="flex justify-between items-center mb-stack-gap">
+<h3 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-compact-gap">
+<span class="material-symbols-outlined text-primary">history</span> Historique des Mouvements
+                    </h3>
+</div>
+<div class="flex flex-col gap-stack-gap relative before:absolute before:left-[17px] before:top-4 before:bottom-4 before:w-0.5 before:bg-outline-variant">
+<!-- Timeline Item -->
+<div class="flex gap-stack-gap relative z-10">
+<div class="w-9 h-9 rounded-full bg-surface border-2 border-primary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px] text-primary">move_down</span>
+</div>
+<div class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg p-stack-gap">
+<div class="flex justify-between items-start mb-unit">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary/10 text-primary border border-primary/30 rounded font-label-sm text-label-sm uppercase">Transfert</span>
+<span class="font-label-md text-label-md text-on-surface font-bold text-primary">Changement de localisation</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">10 Mar 2024, 09:45</span>
+</div>
+<div class="grid grid-cols-2 gap-stack-gap mt-unit">
+<div>
+<span class="block font-label-sm text-on-surface-variant uppercase">Ancienne Loc. / Statut</span>
+<span class="text-body-sm">Stock Central / <span class="text-primary">En stock</span></span>
+</div>
+<div>
+<span class="block font-label-sm text-on-surface-variant uppercase">Nouvelle Loc. / Statut</span>
+<span class="text-body-sm">Bureau 202 / <span class="text-tertiary">Affecté</span></span>
+</div>
+</div>
+<div class="mt-compact-gap border-t border-outline-variant/30 pt-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant flex items-center gap-unit italic">
+<span class="material-symbols-outlined text-[14px]">person</span> Employé: Jean Martin (Affectataire) • Validé par: M. Dubois
+                                </span>
+</div>
+</div>
+</div>
+<!-- Timeline Item (Affectation) -->
+<div class="flex gap-stack-gap relative z-10">
+<div class="w-9 h-9 rounded-full bg-surface border-2 border-tertiary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px] text-tertiary">person_add</span>
+</div>
+<div class="flex-1 bg-surface-container-low border border-outline-variant rounded-lg p-stack-gap">
+<div class="flex justify-between items-start mb-unit">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-tertiary/10 text-tertiary border border-tertiary/30 rounded font-label-sm text-label-sm uppercase">Affectation</span>
+<span class="font-label-md text-label-md text-on-surface font-bold text-tertiary">Initialisation Matériel</span>
+</div>
+<span class="font-label-sm text-label-sm text-on-surface-variant">12 Jan 2024, 14:20</span>
+</div>
+<div class="grid grid-cols-2 gap-stack-gap mt-unit">
+<div>
+<span class="block font-label-sm text-on-surface-variant uppercase">Provenance</span>
+<span class="text-body-sm">Achat (Fournisseur)</span>
+</div>
+<div>
+<span class="block font-label-sm text-on-surface-variant uppercase">Statut Initial</span>
+<span class="text-body-sm text-primary">En stock (Stock Central)</span>
+</div>
+</div>
+<div class="mt-compact-gap border-t border-outline-variant/30 pt-unit">
+<span class="font-label-sm text-label-sm text-on-surface-variant italic">Réf. Bon de Livraison: BL-2024-0092</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Panel: Operations (Core Business Rules) -->
+<aside class="w-[350px] bg-surface-container border-l border-outline-variant flex flex-col shrink-0">
+<div class="p-container-padding border-b border-outline-variant shrink-0">
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface flex items-center gap-compact-gap">
+<span class="material-symbols-outlined text-primary">settings_applications</span> Actions Matériel
+            </h2>
+</div>
+<div class="flex-1 overflow-y-auto p-container-padding flex flex-col gap-container-padding">
+<!-- Dynamic Action Form -->
+<div class="flex flex-col gap-stack-gap">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase border-b border-outline-variant pb-unit">Nouveau Mouvement</h3>
+<div class="flex flex-col gap-unit">
+<label class="font-label-sm text-label-sm text-on-surface">Type d'Opération</label>
+<div class="relative">
+<select class="w-full bg-surface border border-outline-variant rounded-DEFAULT pl-3 pr-compact-gap py-unit text-body-sm font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none appearance-none">
+<option>Transférer (Changer Localisation)</option>
+<option>Affecter à un employé (Disponible)</option>
+<option>Enregistrer Retour</option>
+<option>Maintenance (En maintenance)</option>
+<option>Mise au rebut (HS / Rebut)</option>
+</select>
+<span class="material-symbols-outlined absolute right-compact-gap top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px] pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Conditional Fields -->
+<div class="flex flex-col gap-unit">
+<label class="font-label-sm text-label-sm text-on-surface">Destination (Localisation)</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-compact-gap top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">location_on</span>
+<input class="w-full bg-surface border border-outline-variant rounded-DEFAULT pl-8 pr-compact-gap py-unit text-body-sm font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Sélectionner le site/bureau..." type="text">
+</div>
+</div>
+<div class="flex flex-col gap-unit">
+<label class="font-label-sm text-label-sm text-on-surface">Employé Concerné</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-compact-gap top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">person</span>
+<input class="w-full bg-surface border border-outline-variant rounded-DEFAULT pl-8 pr-compact-gap py-unit text-body-sm font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Rechercher un employé..." type="text">
+</div>
+</div>
+<div class="flex flex-col gap-unit">
+<label class="font-label-sm text-label-sm text-on-surface">Motif / Commentaire</label>
+<textarea class="w-full bg-surface border border-outline-variant rounded-DEFAULT px-compact-gap py-unit text-body-sm font-body-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none h-20" placeholder="Motif du mouvement..."></textarea>
+</div>
+</div>
+<!-- Quick Access Buttons (Business Logic) -->
+<div class="flex flex-col gap-stack-gap mt-compact-gap">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase border-b border-outline-variant pb-unit">Raccourcis Métier</h3>
+<button class="w-full bg-primary/10 hover:bg-primary/20 border border-primary/50 text-primary rounded-DEFAULT py-compact-gap px-stack-gap font-label-md text-label-md transition-colors flex items-center justify-center gap-compact-gap">
+<span class="material-symbols-outlined text-[18px]">person_add</span> Affecter à un employé
+                </button>
+<button class="w-full bg-surface border border-outline-variant hover:border-tertiary hover:text-tertiary text-on-surface rounded-DEFAULT py-compact-gap px-stack-gap font-label-md text-label-md transition-colors flex items-center justify-center gap-compact-gap">
+<span class="material-symbols-outlined text-[18px]">assignment_return</span> Enregistrer Retour
+                </button>
+<button class="w-full bg-surface border border-outline-variant hover:border-primary hover:text-primary text-on-surface rounded-DEFAULT py-compact-gap px-stack-gap font-label-md text-label-md transition-colors flex items-center justify-center gap-compact-gap">
+<span class="material-symbols-outlined text-[18px]">swap_horiz</span> Transférer (Localisation)
+                </button>
+<button class="w-full bg-surface border border-outline-variant hover:border-error hover:text-error text-on-surface rounded-DEFAULT py-compact-gap px-stack-gap font-label-md text-label-md transition-colors flex items-center justify-center gap-compact-gap">
+<span class="material-symbols-outlined text-[18px]">build_circle</span> Envoyer en Maintenance
+                </button>
+</div>
+</div>
+<!-- Sticky Footer Actions -->
+<div class="p-container-padding border-t border-outline-variant bg-surface-container shrink-0 flex flex-col gap-stack-gap shadow-[0_-4px_12px_rgba(0,0,0,0.2)]">
+<button class="w-full bg-primary hover:bg-primary-container text-on-primary rounded-lg py-compact-gap px-stack-gap font-headline-sm text-body-md font-bold transition-colors">
+                Valider le mouvement
+            </button>
+<button class="w-full bg-transparent border border-outline-variant text-on-surface-variant hover:bg-surface-container-high rounded-lg py-compact-gap px-stack-gap font-body-md text-body-md transition-colors">
+                Annuler l'opération
+            </button>
+</div>
+</aside>
+</main>
+
+
+</body></html>

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SOPAL_GPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+35b0073fc63d4ebb0838b26e1cc11848b5483519")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+28bae3d5625f02926d02e2666c8a4288b35569bf")]
 [assembly: System.Reflection.AssemblyProductAttribute("SOPAL_GPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SOPAL_GPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

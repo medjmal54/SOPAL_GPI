@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.HttpOverrides;
 using Scalar.AspNetCore;
 using SOPAL_GPI.MiddleWare;
 using Mapster;
@@ -96,6 +97,10 @@ if (app.Environment.IsDevelopment())
 
 app.UseMiddleware<RequestDeleagteLogging>();
 app.UseMiddleware<ExceptionHandling>();
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto
+});
 app.UseHttpsRedirection();
 app.UseRouting();
 

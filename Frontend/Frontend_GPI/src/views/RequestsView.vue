@@ -1,8 +1,5 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { Wrench, Search, PlusCircle, Clock, UserCheck, Eye, CheckCircle, List, ToggleLeft, ToggleRight } from 'lucide-vue-next'
-import PageHeader from '../components/PageHeader.vue'
-import DataTable from '../components/DataTable.vue'
 import Modal from '../components/Modal.vue'
 import { apiGet, apiPost, apiPut } from '../services/api'
 import { useAuth } from '../services/auth'
@@ -24,7 +21,6 @@ const saving = ref(false)
 const descPanne = ref('')
 const matId = ref('')
 
-// ─── Admin: Intervention Detail ───
 const showIntervDetail = ref(false)
 const selectedRequest = ref(null)
 const interventions = ref([])
@@ -60,9 +56,7 @@ async function loadData() {
 
 onMounted(() => {
   loadData()
-  if (isAdmin()) {
-    startConnection()
-  }
+  if (isAdmin()) startConnection()
 })
 
 watch(signalRequests, (newRequests) => {
@@ -101,15 +95,6 @@ function formatDate(d) {
   return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-const columns = [
-  { key: 'dateMouvement', label: 'Date', sortable: true },
-  { key: 'materielId', label: 'Matériel', sortable: true },
-  { key: 'commentaires', label: 'Description', sortable: false },
-  { key: 'statut', label: 'Statut', sortable: true },
-  { key: 'employeMat', label: 'Demandeur', sortable: false },
-]
-
-// ─── User: Create Request ───
 function openAdd() {
   descPanne.value = ''
   matId.value = ''
@@ -120,12 +105,7 @@ async function submitAdd() {
   if (!descPanne.value || !matId.value) return
   saving.value = true
   try {
-    const params = new URLSearchParams({
-      DescPanne: descPanne.value,
-      Matid: String(matId.value),
-      matricule: String(state.matricule)
-    })
-    await apiPost(`/v1/mouvements/Requests?${params.toString()}`)
+    await apiPost(`/v1/mouvements/Requests?DescPanne=${encodeURIComponent(descPanne.value)}&Matid=${matId.value}&matricule=${state.matricule}`)
     success('Demande d\'intervention créée.')
     showAdd.value = false
     loadData()
@@ -136,18 +116,16 @@ async function submitAdd() {
   }
 }
 
-// ─── Admin: Start Intervention (Pas encore intervenu → En cours) ───
 async function startIntervention(row) {
   try {
     await apiPut(`/v1/mouvements/${row.id ?? row.Id}/start-intervention`)
-    success('Intervention démarrée. Consultez "Mes Interventions" pour la gérer.')
+    success('Intervention démarrée.')
     loadData()
   } catch (e) {
-    toastError(e.message || 'Erreur lors du démarrage de l\'intervention.')
+    toastError(e.message || 'Erreur.')
   }
 }
 
-// ─── Admin: Open Intervention Detail ───
 async function openIntervDetail(row) {
   selectedRequest.value = row
   intervComment.value = ''
@@ -162,13 +140,12 @@ async function loadInterventions(mouvementId) {
     const data = await apiGet(`/Intervention/by-mouvement/${mouvementId}`)
     interventions.value = Array.isArray(data) ? data : []
   } catch (e) {
-    toastError(e.message || 'Erreur de chargement des interventions.')
+    toastError(e.message || 'Erreur de chargement.')
   } finally {
     loadingInterv.value = false
   }
 }
 
-// ─── Admin: Add Intervention ───
 async function submitInterv() {
   if (!intervComment.value || !selectedRequest.value) return
   saving.value = true
@@ -183,268 +160,208 @@ async function submitInterv() {
     intervComment.value = ''
     await loadInterventions(selectedRequest.value.id ?? selectedRequest.value.Id)
   } catch (e) {
-    toastError(e.message || 'Erreur lors de l\'ajout.')
+    toastError(e.message || 'Erreur.')
   } finally {
     saving.value = false
   }
 }
 
-// ─── Admin: Resolve Request ───
 async function resolveRequest() {
   if (!selectedRequest.value) return
   saving.value = true
   try {
     await apiPut(`/v1/mouvements/${selectedRequest.value.id ?? selectedRequest.value.Id}/resolve`)
-    success('Demande marquée comme résolue.')
+    success('Demande résolue.')
     showIntervDetail.value = false
     loadData()
   } catch (e) {
-    toastError(e.message || 'Erreur lors de la résolution.')
+    toastError(e.message || 'Erreur.')
   } finally {
     saving.value = false
   }
 }
 
-// ─── Admin: Toggle Maintenance Status (En cours <-> Terminé) ───
 async function toggleMaintenanceStatus(row) {
   try {
     const res = await apiPut(`/v1/mouvements/${row.id ?? row.Id}/toggle-resolve`)
     const idx = items.value.findIndex(i => (i.id ?? i.Id) === (row.id ?? row.Id))
-    if (idx !== -1) {
-      items.value[idx] = { ...items.value[idx], statut: res.statut }
-    }
+    if (idx !== -1) items.value[idx] = { ...items.value[idx], statut: res.statut }
     success(res.message || 'Statut mis à jour.')
   } catch (e) {
-    toastError(e.message || 'Erreur lors du changement de statut.')
+    toastError(e.message || 'Erreur.')
   }
 }
 
 const isEnCours = computed(() => {
   if (!selectedRequest.value) return false
-  return (selectedRequest.value.statut ?? selectedRequest.value.Statut) === 'En cours'
+  const s = selectedRequest.value.statut ?? selectedRequest.value.Statut
+  return s === 'En cours' || s === 'Pas encore intervenu'
 })
 
 const filteredUserMats = computed(() => {
   const list = materials.value || []
   return list.filter(m => (m.employeMat ?? m.EmployeMat) === state.matricule)
 })
+
+function statusColor(s) {
+  if (s === 'Pas encore intervenu') return 'status-chip maintenance'
+  if (s === 'En cours') return 'status-chip en-stock-blue'
+  if (s === 'Terminé') return 'status-chip affecte'
+  return 'status-chip'
+}
+
+function statusIcon(s) {
+  if (s === 'Pas encore intervenu') return 'schedule'
+  if (s === 'En cours') return 'build'
+  if (s === 'Terminé') return 'check_circle'
+  return 'help'
+}
 </script>
 
 <template>
   <div>
-    <PageHeader
-      :title="isAdmin() ? 'Demandes d\'intervention' : 'Mes demandes'"
-      :description="isAdmin() ? 'Gérez les demandes de maintenance du parc.' : 'Consultez et créez vos demandes d\'intervention.'"
-      :icon="Wrench"
-    >
-      <template #actions>
-        <div class="flex items-center gap-3">
-          <span v-if="isAdmin()" class="badge badge-amber">
-            <Clock :size="11" class="mr-1" />
-            {{ pendingCount }} en attente
-          </span>
-          <button v-if="!isAdmin()" class="btn btn-primary" @click="openAdd">
-            <PlusCircle :size="15" />
-            Nouvelle demande
-          </button>
-        </div>
-      </template>
-    </PageHeader>
-
-    <!-- Search -->
-    <div class="flex items-center gap-2 mb-4">
-      <div class="flex items-center gap-2 flex-1 max-w-xs rounded-xl px-3 py-2.5 text-sm"
-        style="background:rgba(8,12,30,0.8);border:1px solid rgba(255,255,255,0.08);">
-        <Search :size="15" class="text-slate-500 flex-shrink-0" />
-        <input v-model="query" placeholder="Filtrer…" class="bg-transparent outline-none text-slate-200 placeholder-slate-600 w-full" />
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h2 class="font-headline-md text-headline-md font-bold text-on-surface">
+          {{ isAdmin() ? 'Demandes d\'intervention' : 'Mes demandes' }}
+        </h2>
+        <p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
+          {{ isAdmin() ? 'Gérez les demandes de maintenance' : 'Consultez et créez vos demandes' }}
+        </p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span v-if="isAdmin()" class="status-chip maintenance">
+          <span class="material-symbols-outlined text-[14px]">schedule</span>
+          {{ pendingCount }} en attente
+        </span>
+        <button v-if="!isAdmin()" class="btn btn-primary flex items-center gap-2" @click="openAdd">
+          <span class="material-symbols-outlined text-[16px]">add</span>
+          Nouvelle demande
+        </button>
       </div>
     </div>
 
-    <!-- Table -->
-    <DataTable
-      :columns="columns"
-      :rows="filtered"
-      :loading="loading"
-      :show-actions="isAdmin()"
-      empty-text="Aucune demande en cours."
-    >
-      <template #cell-dateMouvement="{ value }">
-        <span class="text-slate-400 text-xs">{{ formatDate(value) }}</span>
-      </template>
-      <template #cell-materielId="{ value }">
-        <span class="text-slate-300">{{ materialName(value) }}</span>
-      </template>
-      <template #cell-commentaires="{ value }">
-        <span class="text-slate-400 text-sm truncate block max-w-xs">{{ value || '—' }}</span>
-      </template>
-      <template #cell-statut="{ value, row }">
-        <button
-          v-if="isAdmin() && (value === 'En cours' || value === 'Terminé')"
-          class="inline-flex items-center gap-1.5 text-xs font-medium transition cursor-pointer"
-          :class="value === 'Terminé' ? 'text-emerald-400 hover:text-emerald-300' : 'text-indigo-400 hover:text-indigo-300'"
-          @click="toggleMaintenanceStatus(row)"
-        >
-          <ToggleRight v-if="value === 'Terminé'" :size="14" />
-          <ToggleLeft v-else :size="14" />
-          {{ value }}
-        </button>
-        <span v-else-if="value === 'Pas encore intervenu'" class="badge badge-amber">
-          {{ value }}
-        </span>
-        <span v-else class="badge badge-gray">
-          {{ value || 'En attente' }}
-        </span>
-      </template>
-      <template #cell-employeMat="{ value }">
-        <span v-if="value" class="text-slate-300 text-sm">{{ employeeName(value) }}</span>
-        <span v-else class="text-slate-600 text-xs">—</span>
-      </template>
-      <template #actions="{ row }">
-        <button
-          v-if="(row.statut ?? row.Statut) === 'Pas encore intervenu'"
-          class="btn btn-primary btn-sm"
-          @click="startIntervention(row)"
-        >
-          <Wrench :size="12" />
-          Intervenir
-        </button>
-        <button
-          v-else-if="(row.statut ?? row.Statut) === 'En cours' || (row.statut ?? row.Statut) === 'Terminé'"
-          class="btn btn-sm"
-          style="background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);"
-          @click="openIntervDetail(row)"
-        >
-          <Eye :size="12" />
-          Ouvrir
-        </button>
-      </template>
-    </DataTable>
+    <div class="flex items-center gap-2 mb-4">
+      <div class="relative flex-1 max-w-xs">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">search</span>
+        <input v-model="query" class="w-full bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-1.5 font-label-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Filtrer..." type="text">
+      </div>
+      <span class="font-label-sm text-label-sm text-on-surface-variant">{{ filtered.length }} demande{{ filtered.length !== 1 ? 's' : '' }}</span>
+    </div>
 
-    <!-- USER: Create Request Modal -->
-    <Modal
-      v-if="showAdd"
-      title="Nouvelle demande d'intervention"
-      confirm-text="Envoyer"
-      :loading="saving"
-      @close="showAdd = false"
-      @confirm="submitAdd"
-    >
+    <div v-if="loading" class="flex items-center justify-center py-24"><div class="spinner" /></div>
+
+    <div v-else-if="filtered.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
+      <span class="material-symbols-outlined text-[48px] text-on-surface-variant">assignment</span>
+      <p class="font-body-md text-body-md text-on-surface-variant mt-3">Aucune demande pour le moment.</p>
+    </div>
+
+    <div v-else class="bg-surface-container border border-outline-variant rounded-xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Matériel</th>
+              <th>Description</th>
+              <th>Statut</th>
+              <th v-if="isAdmin()">Demandeur</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in filtered" :key="row.id ?? row.Id">
+              <td class="font-label-sm text-label-sm text-on-surface-variant whitespace-nowrap">{{ formatDate(row.dateMouvement ?? row.DateMouvement) }}</td>
+              <td class="font-body-md text-body-md text-on-surface">{{ materialName(row.materielId ?? row.MaterielId) }}</td>
+              <td class="font-body-sm text-body-sm text-on-surface-variant max-w-xs truncate">{{ row.commentaires || '—' }}</td>
+              <td>
+                <span :class="statusColor(row.statut ?? row.Statut)" class="inline-flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[14px]">{{ statusIcon(row.statut ?? row.Statut) }}</span>
+                  {{ row.statut ?? row.Statut }}
+                </span>
+              </td>
+              <td v-if="isAdmin()" class="font-body-sm text-body-sm text-on-surface-variant whitespace-nowrap">{{ employeeName(row.employeMat ?? row.EmployeMat) || '—' }}</td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <button v-if="(row.statut ?? row.Statut) === 'Pas encore intervenu' && isAdmin()" class="btn btn-primary btn-sm flex items-center gap-1.5" @click="startIntervention(row)">
+                    <span class="material-symbols-outlined text-[14px]">build</span>
+                    Intervenir
+                  </button>
+                  <button v-else-if="((row.statut ?? row.Statut) === 'En cours' || (row.statut ?? row.Statut) === 'Terminé') && isAdmin()" class="btn btn-sm" style="background:rgba(173,198,255,0.1);color:#adc6ff;border:1px solid rgba(173,198,255,0.25);" @click="openIntervDetail(row)">
+                    <span class="material-symbols-outlined text-[14px]">visibility</span>
+                    Ouvrir
+                  </button>
+                  <span v-else class="font-label-sm text-label-sm text-on-surface-variant">—</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <Modal v-if="showAdd" title="Nouvelle demande" confirm-text="Envoyer" :loading="saving" @close="showAdd = false" @confirm="submitAdd">
       <div class="space-y-3">
-        <p class="text-sm text-slate-400">
-          Sélectionnez le matériel concerné et décrivez le problème.
-        </p>
+        <p class="font-body-sm text-body-sm text-on-surface-variant">Sélectionnez le matériel et décrivez le problème.</p>
         <div class="form-group">
           <label class="form-label">Matériel</label>
           <select v-model="matId" class="form-input">
-            <option value="">— Choisir un matériel —</option>
+            <option value="">— Choisir —</option>
             <option v-for="m in filteredUserMats" :key="m.id ?? m.Id" :value="m.id ?? m.Id">
               {{ m.libelle ?? m.Libelle }} — {{ m.marque ?? m.Marque }}
             </option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Description du problème</label>
-          <textarea
-            v-model="descPanne"
-            class="form-input"
-            rows="3"
-            placeholder="Décrivez le problème rencontré…"
-          />
+          <label class="form-label">Description</label>
+          <textarea v-model="descPanne" class="form-input" rows="3" placeholder="Décrivez le problème…" />
         </div>
       </div>
     </Modal>
 
-    <!-- ADMIN: Intervention Detail Modal -->
-    <Modal
-      v-if="showIntervDetail"
-      :title="`Intervention — ${materialName(selectedRequest?.materielId)}`"
-      size="lg"
-      :hide-footer="!isEnCours"
-      :confirm-text="isEnCours ? 'Ajouter' : ''"
-      :loading="saving"
-      @close="showIntervDetail = false"
-      @confirm="submitInterv"
-    >
+    <Modal v-if="showIntervDetail" :title="`Intervention — ${materialName(selectedRequest?.materielId)}`" size="lg" :hide-footer="!isEnCours" :confirm-text="isEnCours ? 'Ajouter' : ''" :loading="saving" @close="showIntervDetail = false" @confirm="submitInterv">
       <div class="space-y-5">
-        <!-- Request Info -->
-        <div class="rounded-xl p-3" style="background:rgba(8,12,30,0.6);border:1px solid rgba(255,255,255,0.06);">
-          <div class="text-xs text-slate-500 mb-1">Description de la panne</div>
-          <p class="text-sm text-slate-300">{{ selectedRequest?.commentaires || 'Aucune description.' }}</p>
+        <div class="bg-surface-container-low border border-outline-variant rounded-lg p-3">
+          <div class="font-label-sm text-label-sm text-on-surface-variant mb-1">Description de la panne</div>
+          <p class="font-body-sm text-body-sm text-on-surface">{{ selectedRequest?.commentaires || 'Aucune description.' }}</p>
         </div>
 
-        <!-- Existing Interventions -->
         <div>
           <div class="flex items-center gap-2 mb-3">
-            <List :size="14" class="text-indigo-400" />
-            <span class="text-sm font-semibold text-slate-300">
-              Interventions existantes
-              <span v-if="interventions.length" class="badge badge-gray ml-1">{{ interventions.length }}</span>
+            <span class="material-symbols-outlined text-primary text-[16px]">list</span>
+            <span class="font-body-md text-body-md font-bold text-on-surface">
+              Interventions
+              <span v-if="interventions.length" class="font-label-sm bg-surface-container-high px-2 py-0.5 rounded border border-outline-variant text-on-surface-variant ml-1">{{ interventions.length }}</span>
             </span>
           </div>
 
-          <!-- Loading -->
-          <div v-if="loadingInterv" class="flex items-center justify-center py-6">
-            <div class="spinner" style="width:20px;height:20px;" />
-          </div>
-
-          <!-- Empty -->
-          <div v-else-if="interventions.length === 0" class="text-sm text-slate-600 py-4 text-center">
-            Aucune intervention enregistrée pour le moment.
-          </div>
-
-          <!-- Intervention List -->
+          <div v-if="loadingInterv" class="flex items-center justify-center py-6"><div class="spinner" /></div>
+          <div v-else-if="interventions.length === 0" class="font-body-sm text-body-sm text-on-surface-variant py-4 text-center">Aucune intervention enregistrée.</div>
           <div v-else class="space-y-2 max-h-48 overflow-y-auto pr-1">
-            <div
-              v-for="interv in interventions"
-              :key="interv.id ?? interv.Id"
-              class="rounded-xl p-3 flex items-start gap-3"
-              style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.12);"
-            >
-              <div
-                class="flex-shrink-0 flex items-center justify-center rounded-full mt-0.5"
-                style="width:28px;height:28px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.25);"
-              >
-                <Wrench :size="12" class="text-indigo-400" />
+            <div v-for="(interv, idx) in interventions" :key="interv.id ?? interv.Id" class="bg-surface-container-low border border-outline-variant rounded-lg p-3 flex items-start gap-3">
+              <div class="w-7 h-7 rounded-full bg-primary-container/20 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5">
+                <span class="font-label-sm text-label-sm text-primary font-bold">{{ idx + 1 }}</span>
               </div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
-                  <span class="text-xs text-slate-500">{{ formatDate(interv.date ?? interv.Date) }}</span>
-                  <span v-if="interv.intervenantId ?? interv.IntervenantId" class="text-xs text-slate-600">
-                    — {{ employeeName(interv.intervenantId ?? interv.IntervenantId) }}
-                  </span>
+                  <span class="font-label-sm text-label-sm text-on-surface-variant">{{ formatDate(interv.date ?? interv.Date) }}</span>
+                  <span v-if="interv.intervenantId ?? interv.IntervenantId" class="font-label-sm text-label-sm text-on-surface-variant">— {{ employeeName(interv.intervenantId ?? interv.IntervenantId) }}</span>
                 </div>
-                <p class="text-sm text-slate-300">{{ interv.commentaires || interv.Commentaires || '—' }}</p>
+                <p class="font-body-sm text-body-sm text-on-surface">{{ interv.commentaires || interv.Commentaires || '—' }}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- New Intervention Form -->
-        <div v-if="isEnCours">
-          <div class="flex items-center gap-2 mb-2">
-            <Wrench :size="14" class="text-amber-400" />
-            <span class="text-sm font-semibold text-slate-300">Nouvelle intervention</span>
-          </div>
-          <textarea
-            v-model="intervComment"
-            class="form-input"
-            rows="3"
-            placeholder="Décrivez l'intervention réalisée…"
-          />
+        <div v-if="isEnCours" class="form-group">
+          <label class="form-label">Nouvelle intervention</label>
+          <textarea v-model="intervComment" class="form-input" rows="3" placeholder="Décrivez l'intervention…" />
         </div>
 
-        <!-- Resolve / Toggle Button -->
-        <div class="pt-2" style="border-top:1px solid rgba(255,255,255,0.06);">
-          <button
-            class="btn w-full justify-center gap-2"
-            :style="(selectedRequest?.statut ?? selectedRequest?.Statut) === 'Terminé'
-              ? 'background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.25);'
-              : 'background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.25);'"
-            @click="toggleMaintenanceStatus(selectedRequest); showIntervDetail = false; loadData()"
-          >
-            <ToggleRight v-if="(selectedRequest?.statut ?? selectedRequest?.Statut) === 'Terminé'" :size="15" />
-            <ToggleLeft v-else :size="15" />
-            {{ (selectedRequest?.statut ?? selectedRequest?.Statut) === 'Terminé' ? 'Marquer comme en cours' : 'Marquer comme terminé' }}
+        <div class="pt-2 border-t border-outline-variant/30 flex gap-2">
+          <button v-if="selectedRequest?.statut !== 'Terminé'" class="btn w-full justify-center gap-2" style="background:rgba(78,222,163,0.1);color:#4edea3;border:1px solid rgba(78,222,163,0.25);" @click="resolveRequest()">
+            <span class="material-symbols-outlined text-[16px]">check_circle</span>
+            Résoudre
           </button>
         </div>
       </div>
