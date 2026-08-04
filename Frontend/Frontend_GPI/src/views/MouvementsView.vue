@@ -205,15 +205,6 @@ function statutIcon(statut) {
           <h1 class="font-display-lg text-display-lg text-on-surface">Historique des Mouvements</h1>
           <p class="text-on-surface-variant font-body-md mt-1">Suivi des mouvements du parc informatique.</p>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="relative w-full sm:w-auto">
-            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">search</span>
-            <input v-model="query" class="w-full sm:w-52 bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-1.5 font-label-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Rechercher..." type="text">
-          </div>
-          <div class="flex items-center gap-compact-gap bg-surface-container rounded-lg p-1 border border-outline-variant/30">
-            <button v-for="tab in [{ value: 'all', label: 'Tout' }, { value: 'pending', label: 'En cours' }, { value: 'completed', label: 'Terminé' }]" :key="tab.value" @click="statusFilter = tab.value" class="px-3 py-1.5 rounded font-label-md text-label-md" :class="statusFilter === tab.value ? 'bg-primary text-on-primary shadow-sm' : 'text-on-surface-variant'">{{ tab.label }}</button>
-          </div>
-        </div>
       </div>
 
       <div class="flex-1 overflow-auto p-container-padding pt-6">
@@ -226,8 +217,7 @@ function statutIcon(statut) {
                 <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Matériel</th>
                 <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Type</th>
                 <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Employé</th>
-                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Localisation</th>
-                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Statut</th>
+                <th class="px-6 py-4 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Localis.</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant/30">
@@ -244,12 +234,6 @@ function statutIcon(statut) {
                 </td>
                 <td class="px-6 py-4 font-body-md text-body-md text-on-surface">{{ employeeName(m.employeMat ?? m.EmployeMat) }}</td>
                 <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">{{ localisationName(m.localisationId ?? m.LocalisationId) }}</td>
-                <td class="px-6 py-4">
-                  <div class="flex items-center gap-1.5" :class="statutIcon(m.statut ?? m.Statut).color">
-                    <span class="material-symbols-outlined text-[18px]">{{ statutIcon(m.statut ?? m.Statut).icon }}</span>
-                    <span class="font-label-md text-label-md">{{ (m.statut ?? m.Statut) || 'Terminé' }}</span>
-                  </div>
-                </td>
               </tr>
             </tbody>
           </table>
@@ -299,34 +283,6 @@ function statutIcon(statut) {
             </span>
             <span class="material-symbols-outlined text-[20px] opacity-0 group-hover/btn:opacity-100 transition-opacity">download</span>
           </button>
-          <button @click="window.print()" class="w-full mt-3 bg-surface-container-highest hover:bg-surface-bright text-on-surface font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 border border-outline-variant transition-all">
-            <span class="material-symbols-outlined text-[20px]">print</span>
-            <span class="font-label-md">Imprimer le journal</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-4">
-        <h5 class="font-label-md text-label-md uppercase tracking-widest text-outline">Statistiques</h5>
-        <div class="grid grid-cols-2 gap-3">
-          <div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant/30">
-            <p class="font-label-sm text-label-sm text-on-surface-variant">TOTAL</p>
-            <p class="font-display-lg text-display-lg text-primary mt-1">{{ statusCounts.total }}</p>
-          </div>
-          <div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant/30">
-            <p class="font-label-sm text-label-sm text-on-surface-variant">EN COURS</p>
-            <p class="font-display-lg text-display-lg text-secondary mt-1">{{ statusCounts.pending }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-auto p-4 bg-primary-container/10 border border-primary/20 rounded-xl">
-        <div class="flex gap-3">
-          <span class="material-symbols-outlined text-primary">info</span>
-          <div>
-            <p class="font-label-md text-label-md text-primary font-bold">Audit</p>
-            <p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Tous les mouvements sont horodatés et tracés.</p>
-          </div>
         </div>
       </div>
     </section>
