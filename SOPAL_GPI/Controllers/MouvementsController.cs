@@ -25,6 +25,16 @@ namespace SOPAL_GPI.Controllers
             return Ok(await mouvementRepository.GetAllAsync());
         }
 
+        [HttpGet("search")]
+        public async Task<ActionResult<MouvementSearchResult>> Search(
+            string? q, int? typmov, int? localisationId, DateTime? from, DateTime? to, string? status,
+            int page = 1, int pageSize = 12)
+        {
+            page = Math.Max(page, 1);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            return Ok(await mouvementRepository.SearchAsync(q, typmov, localisationId, from, to, status, page, pageSize));
+        }
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -95,9 +105,9 @@ namespace SOPAL_GPI.Controllers
 
         [HttpGet("Requests")]
         [Authorize(Roles = "Admin")]
-        public async Task<ActionResult<List<Mouvement>>> GetAllRequestsAsync()
+        public async Task<ActionResult<List<Mouvement>>> GetAllRequestsAsync(string? q)
         {
-            return Ok(await mouvementRepository.GetIntrvRequests());
+            return Ok(await mouvementRepository.GetIntrvRequests(q));
         }
 
         [HttpGet("Requests/count")]
@@ -109,11 +119,11 @@ namespace SOPAL_GPI.Controllers
         }
 
         [HttpGet("Requests/{matricule}")]
-        public async Task<ActionResult<List<Mouvement>>> GetAllRequestsByUser(int matricule)
+        public async Task<ActionResult<List<Mouvement>>> GetAllRequestsByUser(int matricule, string? q)
         {
             var checkemp = await employeRepository.GetByIdAsync(matricule);
             if (checkemp is null) return NotFound(new { message = "Employé invalide!" });
-            return Ok(await mouvementRepository.GetRequetsByUserAsync(matricule));
+            return Ok(await mouvementRepository.GetRequetsByUserAsync(matricule, q));
         }
 
         [HttpPut("{id}/resolve")]
@@ -157,10 +167,10 @@ namespace SOPAL_GPI.Controllers
 
         [HttpGet("my-interventions")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetMyInterventions()
+        public async Task<IActionResult> GetMyInterventions(string? q, bool? done)
         {
             var matricule = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
-            return Ok(await mouvementRepository.GetMyInterventionsAsync(matricule));
+            return Ok(await mouvementRepository.GetMyInterventionsAsync(matricule, q, done));
         }
     }
 }

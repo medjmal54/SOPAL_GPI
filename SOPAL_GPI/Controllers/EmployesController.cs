@@ -18,6 +18,13 @@ public class EmployesController(IEmployeRepository employeRepository, IMapper ma
         return Ok( await employeRepository.GetAllAsync());
     }
 
+    // GET: api/Employe/search
+    [HttpGet("search")]
+    public async Task<ActionResult<PaginatedResult<EmployeListItemDto>>> SearchEmploye(string? q, string? service)
+    {
+        return Ok(await employeRepository.SearchAsync(q, service));
+    }
+
     // GET: api/Employe/{matricule}
     [HttpGet("{matricule}")]
     public async Task<ActionResult<Employe>> GetEmploye(int matricule)

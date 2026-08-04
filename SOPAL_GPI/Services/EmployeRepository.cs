@@ -1,8 +1,11 @@
-﻿using SOPAL_GPI.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using SOPAL_GPI.Data;
+using SOPAL_GPI.DTOs;
+using SOPAL_GPI.Models;
 
 namespace SOPAL_GPI.Services;
 
-public class EmployeRepository(IGenericRepository<Employe> genericrepo): IGenericRepository<Employe>, IEmployeRepository
+public class EmployeRepository(IGenericRepository<Employe> genericrepo, GpiContext db) : IGenericRepository<Employe>, IEmployeRepository
 {
     public async Task AddAsync(Employe entity)
     {
@@ -34,9 +37,48 @@ public class EmployeRepository(IGenericRepository<Employe> genericrepo): IGeneri
         var all = await genericrepo.GetAllAsync();
         return (DateTime.Now.Year % 100) * 1000 + all.Count;
     }
+
+    public async Task<PaginatedResult<EmployeListItemDto>> SearchAsync(string? q, string? service)
+    {
+        var query = db.Employes.AsNoTracking().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var needle = q.Trim().ToLower();
+            query = query.Where(e =>
+                e.Nom.ToLower().Contains(needle) ||
+                e.Prenom.ToLower().Contains(needle) ||
+                e.Email.ToLower().Contains(needle) ||
+                (e.Service != null && e.Service.ToLower().Contains(needle)) ||
+                e.Poste.ToLower().Contains(needle));
+        }
+        if (!string.IsNullOrWhiteSpace(service))
+            query = query.Where(e => e.Service == service);
+
+        var total = await query.CountAsync();
+
+        var items = await query
+            .Select(e => new EmployeListItemDto
+            {
+                Matricule = e.Matricule,
+                Nom = e.Nom,
+                Prenom = e.Prenom,
+                Email = e.Email,
+                Service = e.Service,
+                Poste = e.Poste,
+                Actif = e.Actif,
+                Role = e.Role,
+                MaterialCount = e.Materials.Count()
+            })
+            .OrderBy(e => e.Nom)
+            .ToListAsync();
+
+        return new PaginatedResult<EmployeListItemDto> { Items = items, Total = total };
+    }
 }
 
 public interface IEmployeRepository : IGenericRepository<Employe>
 {
     public Task<int> GenerateMatAsync();
+    public Task<PaginatedResult<EmployeListItemDto>> SearchAsync(string? q, string? service);
 }

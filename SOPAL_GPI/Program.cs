@@ -5,6 +5,7 @@ using SOPAL_GPI.MiddleWare;
 using Mapster;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using SOPAL_GPI.Data;
@@ -71,6 +72,7 @@ builder.Services.AddCors(options =>
             policy.WithOrigins(builder.Configuration.GetValue<string>("Cors:Frontend")!)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
+                .WithExposedHeaders("Content-Disposition")
                 .AllowCredentials();
         });
 });
@@ -85,6 +87,7 @@ builder.Services.AddScoped<IMouvementRepository, MouvementRepository>();
 builder.Services.AddScoped<ILocalisationRepository, LocalisationRepository>();
 builder.Services.AddScoped<ITypMovRepository, TypMovRepository>();
 builder.Services.AddScoped<IinterventionRepositroy, InterventionRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IJwtRepository, JwtRepository>();
 
 var app = builder.Build();

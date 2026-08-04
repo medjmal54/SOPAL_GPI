@@ -19,18 +19,25 @@ public class MaterialsController(IMaterialRepository materialRepository, IMapper
         return Ok(await materialRepository.GetAllAsync());
     }
 
+    [HttpGet("search")]
+    public async Task<ActionResult<PaginatedResult<Material>>> SearchAsync(
+        string? q, int? typeId, int? localisationId, bool? actif, int? employeMat, string? department)
+    {
+        return Ok(await materialRepository.SearchAsync(q, typeId, localisationId, actif, employeMat, department));
+    }
+
     [HttpGet("{id}")]
-    public async Task<ActionResult<MaterialDTO>> GetByIdAsync(int id)
+    public async Task<ActionResult<Material>> GetByIdAsync(int id)
     {
         var material = await materialRepository.GetByIdAsync(id);
         if (material is null) return BadRequest("No such material");
-        return Ok(mapper.Map<MaterialDTO>(material));
+        return Ok(material);
     }
 
     [HttpGet("by-employe/{matricule}")]
-    public async Task<ActionResult<List<Material>>> GetByEmploye(int matricule)
+    public async Task<ActionResult<List<Material>>> GetByEmploye(int matricule, string? q)
     {
-        var materials = await materialRepository.GetByEmployeMatAsync(matricule);
+        var materials = await materialRepository.GetByEmployeMatAsync(matricule, q);
         return Ok(materials);
     }
 

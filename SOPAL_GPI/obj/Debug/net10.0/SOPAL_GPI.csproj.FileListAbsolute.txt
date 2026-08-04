@@ -170,3 +170,19 @@ C:\Users\user\AppData\Local\Temp\kilo\build_out\SOPAL_GPI.deps.json
 C:\Users\user\AppData\Local\Temp\kilo\build_out\SOPAL_GPI.runtimeconfig.json
 C:\Users\user\AppData\Local\Temp\kilo\build_out\SOPAL_GPI.dll
 C:\Users\user\AppData\Local\Temp\kilo\build_out\SOPAL_GPI.pdb
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\appsettings.Development.json
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\appsettings.json
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\SOPAL_GPI.staticwebassets.endpoints.json
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\SOPAL_GPI.exe
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\SOPAL_GPI.deps.json
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\SOPAL_GPI.runtimeconfig.json
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\SOPAL_GPI.dll
+C:\Users\user\AppData\Local\Temp\opencode\sopal-build-check\SOPAL_GPI.pdb
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\ClosedXML.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\ClosedXML.Parser.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\DocumentFormat.OpenXml.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\DocumentFormat.OpenXml.Framework.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\ExcelNumberFormat.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\RBush.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\SixLabors.Fonts.dll
+C:\Users\user\Documents\DotNet Projects\SOPAL_GPI\SOPAL_GPI\bin\Debug\net10.0\System.IO.Packaging.dll
