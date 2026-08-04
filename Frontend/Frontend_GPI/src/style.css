@@ -100,7 +100,10 @@
   --app-background: #f8f9fd;
 }
 
-* { box-sizing: border-box; }
+* 
+{ 
+  box-sizing: border-box;
+}
 
 button,
 input,
@@ -125,6 +128,7 @@ html, body, #app {
   background: var(--app-background);
   color: var(--app-on-surface);
 }
+
 html, body { overflow-x: hidden; overflow-y: auto; }
 #app { overflow: visible; }
 
@@ -329,6 +333,7 @@ textarea.form-input { font-family: Geist, ui-sans-serif, system-ui, sans-serif; 
   padding-top: 16px;
   border-top: 1px solid #424754;
 }
+
 @keyframes modalIn {
   from { opacity: 0; transform: scale(0.95) translateY(12px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
@@ -507,18 +512,12 @@ textarea.form-input { font-family: Geist, ui-sans-serif, system-ui, sans-serif; 
   .data-table tbody td { padding: 10px 12px; }
 }
 
-/* Route pages own their content height; the document remains scrollable on every view. */
+/* Workspace layouts: sidebars stay fixed, only the content panel scrolls. */
 .app-content { min-height: calc(100vh - 64px); }
 .route-view { min-height: calc(100vh - 64px); overflow: visible; }
 .workspace-layout {
-  height: auto !important;
-  min-height: calc(100vh - 64px);
-  overflow: visible !important;
-}
-.workspace-layout > section,
-.workspace-layout > main {
-  max-height: none !important;
-  overflow: visible !important;
+  height: calc(100vh - 64px);
+  overflow: hidden;
 }
 
 :root[data-theme='light'] .btn-ghost { color: var(--app-on-surface-variant); border-color: var(--app-outline-variant); }

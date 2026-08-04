@@ -5,9 +5,11 @@ import Modal from '../components/Modal.vue'
 import { apiGet, apiPost, apiPut, apiDelete } from '../services/api'
 import { useToast } from '../composables/useToast'
 import { useAuth } from '../services/auth'
+import { useExport } from '../composables/useExport'
 
 const { success, error: toastError } = useToast()
 const { isAdmin } = useAuth()
+const { exportData } = useExport()
 const route = useRoute()
 const router = useRouter()
 
@@ -18,6 +20,7 @@ const employees = ref([])
 const movements = ref([])
 const loading = ref(true)
 const loadingMovements = ref(false)
+const exporting = ref(false)
 const query = ref('')
 const selectedAsset = ref(null)
 const operation = ref('transfert')
@@ -39,13 +42,16 @@ const form = ref(emptyForm())
 async function loadData() {
   loading.value = true
   try {
-    const [mats, types, locs, emps] = await Promise.all([
-      apiGet('/Materials'),
+    const params = new URLSearchParams()
+    if (query.value) params.set('q', query.value)
+    const queryString = params.toString()
+    const [search, types, locs, emps] = await Promise.all([
+      apiGet(`/Materials/search${queryString ? `?${queryString}` : ''}`),
       apiGet('/Matypes'),
       apiGet('/Localistations'),
       apiGet('/Employes'),
     ])
-    items.value = Array.isArray(mats) ? mats : []
+    items.value = Array.isArray(search?.items) ? search.items : []
     matypes.value = Array.isArray(types) ? types : []
     locations.value = Array.isArray(locs) ? locs : []
     employees.value = Array.isArray(emps) ? emps : []
@@ -60,11 +66,10 @@ async function loadData() {
 
 onMounted(loadData)
 
-const filtered = computed(() => {
-  const list = items.value || []
-  if (!query.value) return list
-  const q = query.value.toLowerCase()
-  return list.filter(i => JSON.stringify(i).toLowerCase().includes(q))
+let searchTimer = null
+watch(query, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(loadData, 300)
 })
 
 function selectAsset(mat) {
@@ -125,6 +130,7 @@ const movementIcons = { 1: 'person_add', 2: 'assignment_return', 3: 'move_down',
 async function loadMovements() {
   if (!selectedAsset.value) { movements.value = []; return }
   const id = raw(selectedAsset.value, 'id', 'Id')
+  if (id == null) { movements.value = []; return }
   loadingMovements.value = true
   movements.value = []
   try {
@@ -147,6 +153,7 @@ watch(selectedAsset, () => {
 
 async function refreshSelected() {
   const id = raw(selectedAsset.value, 'id', 'Id')
+  if (id == null) return
   const fresh = await apiGet(`/Materials/${id}`)
   if (fresh) {
     const index = items.value.findIndex(m => Number(raw(m, 'id', 'Id')) === Number(id))
@@ -171,7 +178,17 @@ async function submitMovement() {
   } finally { saving.value = false }
 }
 
-// ─── CRUD ───
+async function exportMats(format) {
+  exporting.value = true
+  try {
+    await exportData('materials', query.value ? { q: query.value } : {}, format)
+  } catch (e) {
+    toastError(e.message || "Erreur lors de l'export.")
+  } finally {
+    exporting.value = false
+  }
+}
+
 function openAdd() { form.value = emptyForm(); showAdd.value = true }
 async function submitAdd() {
   saving.value = true
@@ -245,7 +262,7 @@ function typeName(id) {
           <div class="spinner" />
         </div>
         <button
-          v-for="mat in filtered"
+          v-for="mat in items"
           :key="mat.id ?? mat.Id"
           class="w-full text-left p-compact-gap rounded-r flex flex-col gap-unit transition-colors"
           :class="selectedAsset === mat ? 'bg-surface-container-highest border-l-4 border-primary' : 'bg-surface-container border-l-4 border-transparent hover:bg-surface-container-high'"
@@ -261,7 +278,7 @@ function typeName(id) {
             {{ typeName(raw(mat, 'typeMaterielId', 'TypeMaterielId')) }}
           </div>
         </button>
-        <div v-if="!loading && filtered.length === 0" class="flex flex-col items-center py-12 text-on-surface-variant">
+        <div v-if="!loading && items.length === 0" class="flex flex-col items-center py-12 text-on-surface-variant">
           <span class="material-symbols-outlined text-[40px] mb-2">inventory_2</span>
           <span class="font-body-sm text-body-sm">Aucun matériel trouvé</span>
         </div>
@@ -270,6 +287,14 @@ function typeName(id) {
         <button v-if="isAdmin()" @click="openAdd" class="w-full flex items-center justify-center gap-compact-gap py-compact-gap border border-outline-variant rounded text-primary hover:bg-surface-container-high transition-colors font-label-md text-label-md">
           <span class="material-symbols-outlined text-[18px]">add_box</span> Nouveau Matériel
         </button>
+        <div class="mt-2 grid grid-cols-2 gap-2">
+          <button :disabled="exporting" @click="exportMats('xlsx')" class="flex items-center justify-center gap-1 py-1.5 border border-outline-variant rounded text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">
+            <span class="material-symbols-outlined text-[15px]">description</span> Excel
+          </button>
+          <button :disabled="exporting" @click="exportMats('csv')" class="flex items-center justify-center gap-1 py-1.5 border border-outline-variant rounded text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-sm text-label-sm">
+            <span class="material-symbols-outlined text-[15px]">table_view</span> CSV
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -462,7 +487,23 @@ function typeName(id) {
 </template>
 
 <style scoped>
-.asset-state,.asset-location{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font:700 10px 'JetBrains Mono',monospace;text-transform:uppercase}.asset-state.assigned{color:#4edea3;background:rgba(78,222,163,.1);border:1px solid rgba(78,222,163,.3)}.asset-state.stock{color:#adc6ff;background:rgba(173,198,255,.1);border:1px solid rgba(173,198,255,.3)}.asset-state.inactive{color:#ffb4ab;background:rgba(255,180,171,.1);border:1px solid rgba(255,180,171,.3)}.asset-location{color:#c2c6d6;background:#272a31;border:1px solid #424754;text-transform:none}.asset-location .material-symbols-outlined{font-size:13px}.acquired-date{text-align:right;color:#8c909f;font:600 9px 'JetBrains Mono',monospace}.acquired-date strong{display:block;margin-top:4px;color:#c2c6d6;font-size:11px}.history-heading,.movement-topline{display:flex;align-items:center;justify-content:space-between;gap:12px}.history-heading{margin-bottom:18px}.history-heading h3{display:flex;align-items:center;gap:8px;font-size:20px;font-weight:600}.history-heading h3 span{color:#adc6ff}.history-heading>span{padding:3px 7px;border:1px solid #424754;border-radius:4px;color:#8c909f;font:600 9px 'JetBrains Mono',monospace}.empty-history{padding:36px;text-align:center;color:#8c909f}.empty-history>span{font-size:36px}.movement-timeline{position:relative;display:flex;flex-direction:column;gap:12px}.movement-timeline:before{content:"";position:absolute;left:17px;top:18px;bottom:18px;width:2px;background:#424754}.movement-entry{position:relative;display:flex;gap:12px}.movement-marker{z-index:1;width:36px;height:36px;flex:none;display:grid;place-items:center;border:2px solid #adc6ff;border-radius:50%;background:#10131a;color:#adc6ff}.movement-marker span{font-size:17px}.movement-card{flex:1;padding:12px;border:1px solid #424754;border-radius:8px;background:#191b23}.movement-topline time{color:#8c909f;font:500 9px 'JetBrains Mono',monospace}.movement-type{color:#adc6ff;font:700 10px 'JetBrains Mono',monospace;text-transform:uppercase}.movement-data{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:12px}.movement-data small{display:block;color:#8c909f;font:600 8px 'JetBrains Mono',monospace}.movement-data strong{display:block;margin-top:3px;color:#e1e2ec;font-size:12px}.actions-title{height:68px;padding:0 20px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #424754}.actions-title span{color:#adc6ff}.actions-title h2{font-size:18px;font-weight:700}.actions-body{flex:1;padding:20px;overflow-y:auto}.action-section{display:flex;flex-direction:column;gap:8px}.action-section+ .action-section{margin-top:24px}.action-section h3{padding-bottom:6px;border-bottom:1px solid #424754;color:#8c909f;font:700 10px 'JetBrains Mono',monospace}.action-section label{margin-top:4px;color:#c2c6d6;font:600 10px 'JetBrains Mono',monospace}.quick-actions button{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px;border:1px solid #424754;border-radius:5px;background:#10131a;color:#e1e2ec;font:600 11px 'JetBrains Mono',monospace}.quick-actions button:hover:not(:disabled){border-color:#adc6ff;color:#adc6ff}.quick-actions button:disabled{opacity:.35}.quick-actions span{font-size:17px}.actions-footer{padding:18px 20px;display:flex;flex-direction:column;gap:8px;border-top:1px solid #424754}.actions-footer button{padding:10px;border:1px solid #424754;border-radius:6px;color:#c2c6d6;font-size:12px}.actions-footer .validate-action{border-color:#adc6ff;background:#adc6ff;color:#002e6a;font-weight:700}.actions-footer button:disabled{opacity:.5}
+.asset-state,.asset-location{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:3px 8px;
+  border-radius:999px;
+  font:700 10px 'JetBrains Mono',monospace;
+  text-transform:uppercase
+}
+
+.asset-state.assigned{
+  color:#4edea3;
+  background:rgba(78,222,163,.1);
+  border:1px solid rgba(78,222,163,.3)
+}
+
+.asset-state.stock{color:#adc6ff;background:rgba(173,198,255,.1);border:1px solid rgba(173,198,255,.3)}.asset-state.inactive{color:#ffb4ab;background:rgba(255,180,171,.1);border:1px solid rgba(255,180,171,.3)}.asset-location{color:#c2c6d6;background:#272a31;border:1px solid #424754;text-transform:none}.asset-location .material-symbols-outlined{font-size:13px}.acquired-date{text-align:right;color:#8c909f;font:600 9px 'JetBrains Mono',monospace}.acquired-date strong{display:block;margin-top:4px;color:#c2c6d6;font-size:11px}.history-heading,.movement-topline{display:flex;align-items:center;justify-content:space-between;gap:12px}.history-heading{margin-bottom:18px}.history-heading h3{display:flex;align-items:center;gap:8px;font-size:20px;font-weight:600}.history-heading h3 span{color:#adc6ff}.history-heading>span{padding:3px 7px;border:1px solid #424754;border-radius:4px;color:#8c909f;font:600 9px 'JetBrains Mono',monospace}.empty-history{padding:36px;text-align:center;color:#8c909f}.empty-history>span{font-size:36px}.movement-timeline{position:relative;display:flex;flex-direction:column;gap:12px}.movement-timeline:before{content:"";position:absolute;left:17px;top:18px;bottom:18px;width:2px;background:#424754}.movement-entry{position:relative;display:flex;gap:12px}.movement-marker{z-index:1;width:36px;height:36px;flex:none;display:grid;place-items:center;border:2px solid #adc6ff;border-radius:50%;background:#10131a;color:#adc6ff}.movement-marker span{font-size:17px}.movement-card{flex:1;padding:12px;border:1px solid #424754;border-radius:8px;background:#191b23}.movement-topline time{color:#8c909f;font:500 9px 'JetBrains Mono',monospace}.movement-type{color:#adc6ff;font:700 10px 'JetBrains Mono',monospace;text-transform:uppercase}.movement-data{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:12px}.movement-data small{display:block;color:#8c909f;font:600 8px 'JetBrains Mono',monospace}.movement-data strong{display:block;margin-top:3px;color:#e1e2ec;font-size:12px}.actions-title{height:68px;padding:0 20px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #424754}.actions-title span{color:#adc6ff}.actions-title h2{font-size:18px;font-weight:700}.actions-body{flex:1;padding:20px;overflow-y:auto}.action-section{display:flex;flex-direction:column;gap:8px}.action-section+ .action-section{margin-top:24px}.action-section h3{padding-bottom:6px;border-bottom:1px solid #424754;color:#8c909f;font:700 10px 'JetBrains Mono',monospace}.action-section label{margin-top:4px;color:#c2c6d6;font:600 10px 'JetBrains Mono',monospace}.quick-actions button{display:flex;align-items:center;justify-content:center;gap:8px;padding:9px;border:1px solid #424754;border-radius:5px;background:#10131a;color:#e1e2ec;font:600 11px 'JetBrains Mono',monospace}.quick-actions button:hover:not(:disabled){border-color:#adc6ff;color:#adc6ff}.quick-actions button:disabled{opacity:.35}.quick-actions span{font-size:17px}.actions-footer{padding:18px 20px;display:flex;flex-direction:column;gap:8px;border-top:1px solid #424754}.actions-footer button{padding:10px;border:1px solid #424754;border-radius:6px;color:#c2c6d6;font-size:12px}.actions-footer .validate-action{border-color:#adc6ff;background:#adc6ff;color:#002e6a;font-weight:700}.actions-footer button:disabled{opacity:.5}
 @media(max-width:1250px){.asset-actions{width:300px}.workspace-layout>aside:first-child{width:250px}}
 @media(max-width:980px){.workspace-layout{display:block}.workspace-layout>aside,.asset-center{width:100%!important;max-height:none!important}.workspace-layout>aside:first-child{height:auto}.workspace-layout>aside:first-child>div:nth-child(2){max-height:310px}.asset-actions{border-left:0;border-top:1px solid #424754}.asset-header>div{flex-wrap:wrap}.acquired-date{text-align:left}.asset-content{padding:16px}}
 </style>

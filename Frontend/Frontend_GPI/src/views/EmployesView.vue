@@ -1,14 +1,17 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import Modal from '../components/Modal.vue'
 import { apiGet, apiPost, apiPut } from '../services/api'
 import { useToast } from '../composables/useToast'
+import { useExport } from '../composables/useExport'
 
 const { success, error: toastError } = useToast()
+const { exportData } = useExport()
 
 const items = ref([])
-const materials = ref([])
+const empMaterials = ref([])
 const loading = ref(true)
+const exporting = ref(false)
 const query = ref('')
 const selectedEmp = ref(null)
 
@@ -23,10 +26,18 @@ const form = ref(emptyForm())
 async function loadData() {
   loading.value = true
   try {
-    const [emps, mats] = await Promise.all([apiGet('/Employes'), apiGet('/Materials')])
-    items.value = Array.isArray(emps) ? emps : []
-    materials.value = Array.isArray(mats) ? mats : []
-    if (items.value.length > 0) selectedEmp.value = items.value[0]
+    const params = new URLSearchParams()
+    if (query.value) params.set('q', query.value)
+    const queryString = params.toString()
+    const search = await apiGet(`/Employes/search${queryString ? `?${queryString}` : ''}`)
+    items.value = Array.isArray(search?.items) ? search.items : []
+    if (items.value.length > 0) {
+      selectedEmp.value = items.value[0]
+      await loadEmpMaterials(selectedEmp.value)
+    } else {
+      selectedEmp.value = null
+      empMaterials.value = []
+    }
   } catch (e) {
     toastError(e.message || 'Erreur de chargement.')
   } finally {
@@ -36,26 +47,45 @@ async function loadData() {
 
 onMounted(loadData)
 
-const filtered = computed(() => {
-  const list = items.value || []
-  if (!query.value) return list
-  const q = query.value.toLowerCase()
-  return list.filter(i => JSON.stringify(i).toLowerCase().includes(q))
+let searchTimer = null
+watch(query, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(loadData, 300)
 })
 
-function selectEmp(emp) { selectedEmp.value = emp }
+async function loadEmpMaterials(emp) {
+  if (!emp) { empMaterials.value = []; return }
+  const mat = emp.matricule ?? emp.Matricule
+  if (mat == null) { empMaterials.value = []; return }
+  try {
+    const data = await apiGet(`/Materials/by-employe/${mat}`)
+    empMaterials.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    empMaterials.value = []
+  }
+}
+
+function selectEmp(emp) {
+  selectedEmp.value = emp
+  loadEmpMaterials(emp)
+}
 
 function getInitials(nom, prenom) {
   return ((prenom?.[0] ?? '') + (nom?.[0] ?? '')).toUpperCase() || '?'
 }
 
-function empMaterials(emp) {
-  if (!emp) return []
-  const mat = emp.matricule ?? emp.Matricule
-  return materials.value.filter(m => (m.employeMat ?? m.EmployeMat) === mat)
-}
-
 function raw(obj, k1, k2) { return obj[k1] ?? obj[k2] ?? null }
+
+async function exportEmps(format) {
+  exporting.value = true
+  try {
+    await exportData('employes', query.value ? { q: query.value } : {}, format)
+  } catch (e) {
+    toastError(e.message || "Erreur lors de l'export.")
+  } finally {
+    exporting.value = false
+  }
+}
 
 const EmployeeFormFields = [
   { key: 'nom', label: 'Nom', placeholder: 'ex: Benali' },
@@ -108,7 +138,7 @@ async function submitEdit() {
       <div class="flex-1 overflow-y-auto p-2 space-y-1">
         <div v-if="loading" class="flex items-center justify-center py-12"><div class="spinner" /></div>
         <button
-          v-for="emp in filtered"
+          v-for="emp in items"
           :key="emp.matricule ?? emp.Matricule"
           class="w-full flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all text-left"
           :class="selectedEmp === emp ? 'bg-secondary-container text-on-secondary-container' : 'hover:bg-surface-container-highest'"
@@ -121,11 +151,11 @@ async function submitEdit() {
             <div class="font-label-md text-label-md font-bold truncate" :class="selectedEmp === emp ? 'text-on-secondary-container' : 'text-on-surface'">{{ emp.prenom }} {{ emp.nom }}</div>
             <div class="font-label-sm text-label-sm" :class="selectedEmp === emp ? 'text-on-secondary-container/70' : 'text-on-surface-variant'">{{ emp.service || emp.poste || '—' }}</div>
           </div>
-          <div v-if="empMaterials(emp).length" class="px-2 py-0.5 rounded border font-label-sm text-[10px] font-bold" :class="selectedEmp === emp ? 'border-on-secondary-container/20 bg-on-secondary-container/10' : 'border-outline-variant/20 bg-surface-container-high text-on-surface-variant'">
-            {{ empMaterials(emp).length }} BIENS
+          <div v-if="(emp.materialCount ?? emp.MaterialCount)" class="px-2 py-0.5 rounded border font-label-sm text-[10px] font-bold" :class="selectedEmp === emp ? 'border-on-secondary-container/20 bg-on-secondary-container/10' : 'border-outline-variant/20 bg-surface-container-high text-on-surface-variant'">
+            {{ emp.materialCount ?? emp.MaterialCount }} BIENS
           </div>
         </button>
-        <div v-if="!loading && filtered.length === 0" class="flex flex-col items-center py-12 text-on-surface-variant">
+        <div v-if="!loading && items.length === 0" class="flex flex-col items-center py-12 text-on-surface-variant">
           <span class="material-symbols-outlined text-[36px] mb-2">badge</span>
           <span class="font-body-sm text-body-sm">Aucun employé trouvé</span>
         </div>
@@ -190,11 +220,11 @@ async function submitEdit() {
             <span class="material-symbols-outlined text-primary">devices</span>
             Matériels assignés
           </h2>
-          <div v-if="empMaterials(selectedEmp).length === 0" class="font-body-md text-body-md text-on-surface-variant py-8 text-center">
+          <div v-if="empMaterials.length === 0" class="font-body-md text-body-md text-on-surface-variant py-8 text-center">
             Aucun matériel assigné.
           </div>
           <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div v-for="mat in empMaterials(selectedEmp)" :key="mat.id ?? mat.Id" class="bg-surface-container border border-outline-variant rounded-xl p-4 flex gap-4 hover:border-primary/50 transition-all group">
+            <div v-for="mat in empMaterials" :key="mat.id ?? mat.Id" class="bg-surface-container border border-outline-variant rounded-xl p-4 flex gap-4 hover:border-primary/50 transition-all group">
               <div class="w-14 h-14 rounded-lg bg-surface-container-highest flex items-center justify-center shrink-0">
                 <span class="material-symbols-outlined text-[28px] text-on-surface-variant group-hover:text-primary transition-colors">devices</span>
               </div>
@@ -226,6 +256,17 @@ async function submitEdit() {
           <span class="material-symbols-outlined text-[20px]">edit</span>
           Modifier
         </button>
+      </div>
+      <div class="border-t border-outline-variant pt-4">
+        <h3 class="font-label-md text-label-md font-bold text-on-surface uppercase tracking-widest mb-3">Export</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <button :disabled="exporting" @click="exportEmps('xlsx')" class="flex items-center justify-center gap-2 py-2 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-md text-label-md">
+            <span class="material-symbols-outlined text-[16px]">description</span> Excel
+          </button>
+          <button :disabled="exporting" @click="exportEmps('csv')" class="flex items-center justify-center gap-2 py-2 rounded-lg border border-outline-variant text-on-surface-variant hover:bg-surface-container-highest transition-colors font-label-md text-label-md">
+            <span class="material-symbols-outlined text-[16px]">table_view</span> CSV
+          </button>
+        </div>
       </div>
       <div class="mt-auto pt-6 border-t border-outline-variant">
         <div class="bg-surface-container p-4 rounded-xl border border-outline-variant">

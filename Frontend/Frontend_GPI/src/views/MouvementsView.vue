@@ -2,14 +2,20 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { apiGet } from '../services/api'
 import { useToast } from '../composables/useToast'
+import { useExport } from '../composables/useExport'
 
 const { error: toastError } = useToast()
+const { exportData } = useExport()
 
 const items = ref([])
+const total = ref(0)
+const totalCompleted = ref(0)
+const totalPending = ref(0)
 const materials = ref([])
 const localisations = ref([])
 const employees = ref([])
 const loading = ref(true)
+const exporting = ref(false)
 const query = ref('')
 const filterType = ref(null)
 const filterLocation = ref('')
@@ -19,13 +25,32 @@ const statusFilter = ref('all')
 const page = ref(1)
 const pageSize = 12
 
+function buildParams() {
+  const params = new URLSearchParams()
+  if (query.value) params.set('q', query.value)
+  if (filterType.value) params.set('typmov', filterType.value)
+  if (filterLocation.value) params.set('localisationId', filterLocation.value)
+  if (dateFrom.value) params.set('from', dateFrom.value)
+  if (dateTo.value) params.set('to', dateTo.value)
+  if (statusFilter.value !== 'all') params.set('status', statusFilter.value)
+  params.set('page', page.value)
+  params.set('pageSize', pageSize)
+  return params
+}
+
 async function loadData() {
   loading.value = true
   try {
-    const [mouvs, mats, locs, emps] = await Promise.all([
-      apiGet('/v1/mouvements'), apiGet('/Materials'), apiGet('/Localistations'), apiGet('/Employes'),
+    const [search, mats, locs, emps] = await Promise.all([
+      apiGet(`/v1/mouvements/search?${buildParams().toString()}`),
+      apiGet('/Materials'),
+      apiGet('/Localistations'),
+      apiGet('/Employes'),
     ])
-    items.value = Array.isArray(mouvs) ? mouvs : []
+    items.value = Array.isArray(search?.items) ? search.items : []
+    total.value = search?.total ?? 0
+    totalCompleted.value = search?.totalCompleted ?? 0
+    totalPending.value = search?.totalPending ?? 0
     materials.value = Array.isArray(mats) ? mats : []
     localisations.value = Array.isArray(locs) ? locs : []
     employees.value = Array.isArray(emps) ? emps : []
@@ -37,6 +62,16 @@ async function loadData() {
 }
 
 onMounted(loadData)
+
+function applyFilters() { page.value = 1; loadData() }
+
+let searchTimer = null
+watch(query, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(applyFilters, 300)
+})
+watch([filterType, filterLocation, dateFrom, dateTo, statusFilter], applyFilters)
+watch(page, loadData)
 
 function materialName(id) {
   const found = materials.value.find(m => (m.id ?? m.Id) === id)
@@ -57,36 +92,7 @@ function employeeName(matricule) {
 const typmovLabel = (t) => ({ 1: 'Affectation', 2: 'Retour', 3: 'Transfert', 4: 'Intervention' })[t] ?? String(t ?? '—')
 const typmovBadge = (t) => ({ 1: 'status-chip affecte', 2: 'status-chip maintenance', 3: 'status-chip en-stock-blue', 4: 'status-chip hors-service' })[t] ?? 'status-chip'
 
-const filtered = computed(() => {
-  let list = items.value || []
-  if (query.value) {
-    const q = query.value.toLowerCase()
-    list = list.filter(i => JSON.stringify(i).toLowerCase().includes(q))
-  }
-  if (filterType.value) {
-    list = list.filter(i => (i.typmov ?? i.Typmov) === filterType.value)
-  }
-  if (filterLocation.value) {
-    list = list.filter(i => String(i.localisationId ?? i.LocalisationId) === filterLocation.value)
-  }
-  if (dateFrom.value) {
-    list = list.filter(i => new Date(i.dateMouvement ?? i.DateMouvement) >= new Date(`${dateFrom.value}T00:00:00`))
-  }
-  if (dateTo.value) {
-    list = list.filter(i => new Date(i.dateMouvement ?? i.DateMouvement) <= new Date(`${dateTo.value}T23:59:59`))
-  }
-  if (statusFilter.value !== 'all') {
-    list = list.filter(i => {
-      const done = ['Terminé', 'Termine'].includes(i.statut ?? i.Statut) || !(i.statut ?? i.Statut)
-      return statusFilter.value === 'completed' ? done : !done
-    })
-  }
-  return list
-})
-
-const pageCount = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize)))
-const paginated = computed(() => filtered.value.slice((page.value - 1) * pageSize, page.value * pageSize))
-watch([query, filterType, filterLocation, dateFrom, dateTo, statusFilter], () => { page.value = 1 })
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
 function resetFilters() {
   query.value = ''
@@ -97,30 +103,25 @@ function resetFilters() {
   statusFilter.value = 'all'
 }
 
-function exportCsv() {
-  const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`
-  const rows = filtered.value.map(m => [
-    formatDate(m.dateMouvement ?? m.DateMouvement),
-    materialName(m.materielId ?? m.MaterielId),
-    typmovLabel(m.typmov ?? m.Typmov),
-    employeeName(m.employeMat ?? m.EmployeMat),
-    localisationName(m.localisationId ?? m.LocalisationId),
-    (m.statut ?? m.Statut) || 'Terminé',
-  ])
-  const csv = ['Date,Matériel,Type,Employé,Localisation,Statut', ...rows.map(row => row.map(quote).join(','))].join('\n')
-  const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `historique-mouvements-${new Date().toISOString().slice(0, 10)}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+async function exportMouvements(format) {
+  exporting.value = true
+  try {
+    const params = {}
+    if (query.value) params.q = query.value
+    if (filterType.value) params.typmov = filterType.value
+    if (filterLocation.value) params.localisationId = filterLocation.value
+    if (dateFrom.value) params.from = dateFrom.value
+    if (dateTo.value) params.to = dateTo.value
+    if (statusFilter.value !== 'all') params.status = statusFilter.value
+    await exportData('mouvements', params, format)
+  } catch (e) {
+    toastError(e.message || "Erreur lors de l'export.")
+  } finally {
+    exporting.value = false
+  }
 }
 
-const statusCounts = computed(() => {
-  const total = items.value.length
-  const completed = items.value.filter(i => (i.statut ?? i.Statut) === 'Terminé' || !(i.statut ?? i.Statut)).length
-  return { total, completed, pending: total - completed }
-})
+const statusCounts = computed(() => ({ total: total.value, completed: totalCompleted.value, pending: totalPending.value }))
 
 function formatDate(d) {
   if (!d) return '—'
@@ -230,7 +231,7 @@ function statutIcon(statut) {
               </tr>
             </thead>
             <tbody class="divide-y divide-outline-variant/30">
-              <tr v-for="(m, i) in paginated" :key="i" class="hover:bg-surface-container-highest transition-colors group" :class="i % 2 === 1 ? 'bg-surface-container-low' : ''">
+              <tr v-for="(m, i) in items" :key="i" class="hover:bg-surface-container-highest transition-colors group" :class="i % 2 === 1 ? 'bg-surface-container-low' : ''">
                 <td class="px-6 py-4 font-label-md text-label-md text-on-surface-variant">{{ formatDate(m.dateMouvement ?? m.DateMouvement) }}</td>
                 <td class="px-6 py-4">
                   <div class="flex items-center gap-2">
@@ -252,7 +253,7 @@ function statutIcon(statut) {
               </tr>
             </tbody>
           </table>
-          <div v-if="paginated.length === 0" class="flex items-center justify-center py-16 text-on-surface-variant">
+          <div v-if="items.length === 0" class="flex items-center justify-center py-16 text-on-surface-variant">
             <div class="text-center">
               <span class="material-symbols-outlined text-[40px]">swap_horiz</span>
               <p class="font-body-md text-body-md mt-2">Aucun mouvement trouvé</p>
@@ -263,7 +264,7 @@ function statutIcon(statut) {
 
       <!-- Pagination -->
       <div class="px-container-padding py-4 flex justify-between items-center border-t border-outline-variant/30 bg-surface-container-lowest">
-        <span class="font-label-md text-label-md text-on-surface-variant">{{ filtered.length }} résultat{{ filtered.length !== 1 ? 's' : '' }} · Page {{ page }} / {{ pageCount }}</span>
+        <span class="font-label-md text-label-md text-on-surface-variant">{{ total }} résultat{{ total !== 1 ? 's' : '' }} · Page {{ page }} / {{ pageCount }}</span>
         <div class="flex gap-2">
           <button class="page-button" :disabled="page === 1" @click="page--"><span class="material-symbols-outlined">chevron_left</span></button>
           <button class="page-button" :disabled="page === pageCount" @click="page++"><span class="material-symbols-outlined">chevron_right</span></button>
@@ -284,9 +285,16 @@ function statutIcon(statut) {
           <p class="font-body-sm text-body-sm text-on-surface-variant mb-6">
             Exportez les mouvements filtrés au format Excel pour la conformité.
           </p>
-          <button @click="exportCsv" class="w-full bg-[#107C41] hover:bg-[#0D6234] text-white font-bold py-3 px-4 rounded-lg flex items-center justify-between transition-all group/btn">
+          <button :disabled="exporting" @click="exportMouvements('xlsx')" class="w-full bg-[#107C41] hover:bg-[#0D6234] text-white font-bold py-3 px-4 rounded-lg flex items-center justify-between transition-all group/btn">
             <span class="flex items-center gap-2 font-label-md text-label-md">
               <span class="material-symbols-outlined text-[20px]">description</span>
+              Export Excel
+            </span>
+            <span class="material-symbols-outlined text-[20px] opacity-0 group-hover/btn:opacity-100 transition-opacity">download</span>
+          </button>
+          <button :disabled="exporting" @click="exportMouvements('csv')" class="w-full mt-3 bg-surface-container-highest hover:bg-surface-bright text-on-surface font-bold py-3 px-4 rounded-lg flex items-center justify-between transition-all group/btn border border-outline-variant">
+            <span class="flex items-center gap-2 font-label-md text-label-md">
+              <span class="material-symbols-outlined text-[20px]">table_view</span>
               Export CSV
             </span>
             <span class="material-symbols-outlined text-[20px] opacity-0 group-hover/btn:opacity-100 transition-opacity">download</span>

@@ -89,14 +89,13 @@ const matDetail = computed(() => {
 async function loadAll() {
   loading.value = true
   try {
-    const [mats, locs, types, emps] = await Promise.all([
-      apiGet('/Materials'), apiGet('/Localistations'), apiGet('/Matypes'), apiGet('/Employes'),
+    const [mat, locs, types, emps] = await Promise.all([
+      apiGet(`/Materials/${matId.value}`), apiGet('/Localistations'), apiGet('/Matypes'), apiGet('/Employes'),
     ])
     locations.value = Array.isArray(locs) ? locs : []
     matypes.value = Array.isArray(types) ? types : []
     employees.value = Array.isArray(emps) ? emps : []
-    const allMats = Array.isArray(mats) ? mats : []
-    material.value = allMats.find(m => (m.id ?? m.Id) === matId.value) ?? null
+    material.value = mat ?? null
     if (!material.value) {
       toastError('Matériel introuvable.')
       router.replace('/materiels')

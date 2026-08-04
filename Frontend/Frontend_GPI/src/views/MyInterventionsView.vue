@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import Modal from '../components/Modal.vue'
 import { apiGet, apiPost, apiPut } from '../services/api'
 import { useAuth } from '../services/auth'
@@ -27,10 +27,13 @@ const addSingleSaving = ref(false)
 async function loadData() {
   loading.value = true
   try {
+    const params = new URLSearchParams()
+    if (query.value) params.set('q', query.value)
+    params.set('done', showDone.value)
     const [reqs, mats, emps] = await Promise.all([
-      apiGet('/v1/mouvements/my-interventions'), apiGet('/Materials'), apiGet('/Employes'),
+      apiGet(`/v1/mouvements/my-interventions?${params.toString()}`), apiGet('/Materials'), apiGet('/Employes'),
     ])
-    items.value = Array.isArray(reqs) ? reqs : []
+    items.value = Array.isArray(reqs?.items) ? reqs.items : []
     materials.value = Array.isArray(mats) ? mats : []
     employees.value = Array.isArray(emps) ? emps : []
   } catch (e) {
@@ -66,25 +69,14 @@ function isTerminated(statut) { return statut === 'Terminé' }
 
 const showDone = ref(false)
 
-const activeCount = computed(() => {
-  const list = items.value || []
-  return showDone.value
-    ? list.filter(i => isTerminated(i.statut)).length
-    : list.filter(i => !isTerminated(i.statut)).length
-})
+const activeCount = computed(() => items.value.length)
 
-const tabFiltered = computed(() => {
-  const list = items.value || []
-  let result = showDone.value ? list.filter(i => isTerminated(i.statut)) : list.filter(i => !isTerminated(i.statut))
-  if (query.value) {
-    const q = query.value.toLowerCase()
-    result = result.filter(item => {
-      const search = [item.commentaires, item.statut, item.dateMouvement, materialName(item.materielId)].filter(Boolean).join(' ').toLowerCase()
-      return search.includes(q)
-    })
-  }
-  return result
+let searchTimer = null
+watch(query, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(loadData, 300)
 })
+watch(showDone, loadData)
 
 async function loadInterventions(mouvementId) {
   loadingInterv.value = true
@@ -168,13 +160,13 @@ async function submitAddSingle() {
 
     <div v-if="loading" class="flex items-center justify-center py-24"><div class="spinner" /></div>
 
-    <div v-else-if="tabFiltered.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
+    <div v-else-if="items.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
       <span class="material-symbols-outlined text-[48px] text-on-surface-variant">handyman</span>
       <p class="font-body-md text-body-md text-on-surface-variant mt-3">Aucune intervention assignée.</p>
     </div>
 
     <div v-else class="space-y-3">
-      <div v-for="row in tabFiltered" :key="row.id ?? row.Id" class="bg-surface-container border border-outline-variant rounded-lg p-4 hover:bg-surface-container-high transition-colors">
+      <div v-for="row in items" :key="row.id ?? row.Id" class="bg-surface-container border border-outline-variant rounded-lg p-4 hover:bg-surface-container-high transition-colors">
         <div class="flex items-start justify-between gap-4">
           <div class="flex items-start gap-3 flex-1 min-w-0">
             <div class="w-9 h-9 rounded-full bg-surface-container-highest border border-outline-variant flex items-center justify-center shrink-0" :class="isTerminated(row.statut) ? 'border-tertiary/30' : 'border-primary/30'">

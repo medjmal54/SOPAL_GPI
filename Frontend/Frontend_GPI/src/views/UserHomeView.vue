@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import Modal from '../components/Modal.vue'
 import { apiGet, apiPost } from '../services/api'
 import { useAuth } from '../services/auth'
@@ -19,10 +19,14 @@ const saving = ref(false)
 const selectedMaterial = ref(null)
 const descPanne = ref('')
 
-onMounted(async () => {
+async function loadData() {
+  loading.value = true
   try {
+    const params = new URLSearchParams()
+    if (query.value) params.set('q', query.value)
+    const queryString = params.toString()
     const [mats, locs, types] = await Promise.all([
-      apiGet(`/Materials/by-employe/${state.matricule}`),
+      apiGet(`/Materials/by-employe/${state.matricule}${queryString ? `?${queryString}` : ''}`),
       apiGet('/Localistations'),
       apiGet('/Matypes'),
     ])
@@ -34,13 +38,14 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
 
-const filtered = computed(() => {
-  const list = materials.value || []
-  if (!query.value) return list
-  const q = query.value.toLowerCase()
-  return list.filter(m => JSON.stringify(m).toLowerCase().includes(q))
+onMounted(loadData)
+
+let searchTimer = null
+watch(query, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(loadData, 300)
 })
 
 function raw(mat, k1, k2) { return mat[k1] ?? mat[k2] ?? null }
@@ -98,7 +103,7 @@ async function submitRequest() {
       </div>
     </div>
 
-    <div v-else-if="filtered.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
+    <div v-else-if="materials.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
       <span class="material-symbols-outlined text-[48px] text-on-surface-variant">devices</span>
       <p class="font-body-md text-body-md text-on-surface-variant mt-3">Aucun matériel ne vous est actuellement affecté.</p>
     </div>
@@ -109,11 +114,11 @@ async function submitRequest() {
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
           <input v-model="query" class="w-full bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-2 font-label-md text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Rechercher..." type="text">
         </div>
-        <span class="font-label-sm text-label-sm text-on-surface-variant">{{ filtered.length }} matériel{{ filtered.length !== 1 ? 's' : '' }}</span>
+        <span class="font-label-sm text-label-sm text-on-surface-variant">{{ materials.length }} matériel{{ materials.length !== 1 ? 's' : '' }}</span>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        <div v-for="mat in filtered" :key="raw(mat, 'id', 'Id')" class="bg-surface-container border border-outline-variant rounded-xl p-4 hover:border-primary/50 transition-all group flex flex-col">
+        <div v-for="mat in materials" :key="raw(mat, 'id', 'Id')" class="bg-surface-container border border-outline-variant rounded-xl p-4 hover:border-primary/50 transition-all group flex flex-col">
           <div class="flex items-start justify-between gap-3 mb-4">
             <div class="flex items-center gap-3">
               <div class="flex items-center justify-center rounded-lg w-10 h-10 bg-surface-container-higher shrink-0">

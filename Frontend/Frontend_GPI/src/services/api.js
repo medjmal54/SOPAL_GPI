@@ -100,3 +100,40 @@ export async function apiDelete(endpoint) {
   const response = await fetch(`${API_BASE}${endpoint}`, options)
   return handleResponse(response, options, false)
 }
+
+export async function apiDownload(endpoint, fallbackName) {
+  const options = {
+    credentials: 'include',
+    _endpoint: endpoint
+  }
+  let response = await fetch(`${API_BASE}${endpoint}`, options)
+
+  if (response.status === 401) {
+    const refreshRes = await tryRefresh()
+    if (refreshRes && refreshRes.ok) {
+      response = await fetch(`${API_BASE}${endpoint}`, options)
+    } else {
+      redirectToLogin()
+      throw new Error('Session expirée.')
+    }
+  }
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || `Erreur HTTP ${response.status}`)
+  }
+
+  const blob = await response.blob()
+  const disposition = response.headers.get('content-disposition')
+  const match = disposition && disposition.match(/filename="?([^";]+)"?/)
+  const filename = (match && match[1]) || fallbackName
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}

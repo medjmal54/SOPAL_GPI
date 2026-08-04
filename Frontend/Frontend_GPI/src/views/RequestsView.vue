@@ -5,15 +5,18 @@ import { apiGet, apiPost, apiPut } from '../services/api'
 import { useAuth } from '../services/auth'
 import { useToast } from '../composables/useToast'
 import { useSignalR } from '../services/signalr'
+import { useExport } from '../composables/useExport'
 
 const { state, isAdmin } = useAuth()
 const { success, error: toastError } = useToast()
 const { requests: signalRequests, startConnection } = useSignalR()
+const { exportData } = useExport()
 
 const items = ref([])
 const materials = ref([])
 const employees = ref([])
 const loading = ref(true)
+const exporting = ref(false)
 const query = ref('')
 const showAdd = ref(false)
 const saving = ref(false)
@@ -32,11 +35,14 @@ const pendingCount = ref(0)
 async function loadData() {
   loading.value = true
   try {
+    const params = new URLSearchParams()
+    if (query.value) params.set('q', query.value)
+    const queryString = params.toString()
     const [reqs, mats, emps] = await Promise.all([
       isAdmin()
-        ? apiGet('/v1/mouvements/Requests')
-        : apiGet(`/v1/mouvements/Requests/${state.matricule}`),
-      apiGet('/Materials'),
+        ? apiGet(`/v1/mouvements/Requests${queryString ? `?${queryString}` : ''}`)
+        : apiGet(`/v1/mouvements/Requests/${state.matricule}${queryString ? `?${queryString}` : ''}`),
+      isAdmin() ? apiGet('/Materials') : apiGet(`/Materials/by-employe/${state.matricule}`),
       apiGet('/Employes'),
     ])
     items.value = Array.isArray(reqs) ? reqs : []
@@ -59,6 +65,12 @@ onMounted(() => {
   if (isAdmin()) startConnection()
 })
 
+let searchTimer = null
+watch(query, () => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(loadData, 300)
+})
+
 watch(signalRequests, (newRequests) => {
   for (const req of newRequests) {
     const id = req.id ?? req.Id
@@ -69,13 +81,6 @@ watch(signalRequests, (newRequests) => {
     }
   }
 }, { deep: true })
-
-const filtered = computed(() => {
-  const list = items.value || []
-  if (!query.value) return list
-  const q = query.value.toLowerCase()
-  return list.filter(i => JSON.stringify(i).toLowerCase().includes(q))
-})
 
 function materialName(id) {
   const found = materials.value.find(m => (m.id ?? m.Id) === id)
@@ -203,6 +208,20 @@ const filteredUserMats = computed(() => {
   return list.filter(m => (m.employeMat ?? m.EmployeMat) === state.matricule)
 })
 
+async function exportRequests(format) {
+  exporting.value = true
+  try {
+    const params = {}
+    if (query.value) params.q = query.value
+    if (!isAdmin()) params.matricule = state.matricule
+    await exportData('requests', params, format)
+  } catch (e) {
+    toastError(e.message || "Erreur lors de l'export.")
+  } finally {
+    exporting.value = false
+  }
+}
+
 function statusColor(s) {
   if (s === 'Pas encore intervenu') return 'status-chip maintenance'
   if (s === 'En cours') return 'status-chip en-stock-blue'
@@ -234,6 +253,14 @@ function statusIcon(s) {
           <span class="material-symbols-outlined text-[14px]">schedule</span>
           {{ pendingCount }} en attente
         </span>
+        <button :disabled="exporting" @click="exportRequests('xlsx')" class="btn btn-ghost flex items-center gap-2">
+          <span class="material-symbols-outlined text-[16px]">description</span>
+          Excel
+        </button>
+        <button :disabled="exporting" @click="exportRequests('csv')" class="btn btn-ghost flex items-center gap-2">
+          <span class="material-symbols-outlined text-[16px]">table_view</span>
+          CSV
+        </button>
         <button v-if="!isAdmin()" class="btn btn-primary flex items-center gap-2" @click="openAdd">
           <span class="material-symbols-outlined text-[16px]">add</span>
           Nouvelle demande
@@ -246,12 +273,12 @@ function statusIcon(s) {
         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[16px]">search</span>
         <input v-model="query" class="w-full bg-surface border border-outline-variant rounded-lg pl-9 pr-3 py-1.5 font-label-sm text-on-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none" placeholder="Filtrer..." type="text">
       </div>
-      <span class="font-label-sm text-label-sm text-on-surface-variant">{{ filtered.length }} demande{{ filtered.length !== 1 ? 's' : '' }}</span>
+      <span class="font-label-sm text-label-sm text-on-surface-variant">{{ items.length }} demande{{ items.length !== 1 ? 's' : '' }}</span>
     </div>
 
     <div v-if="loading" class="flex items-center justify-center py-24"><div class="spinner" /></div>
 
-    <div v-else-if="filtered.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
+    <div v-else-if="items.length === 0" class="bg-surface-container border border-outline-variant rounded-xl p-12 text-center">
       <span class="material-symbols-outlined text-[48px] text-on-surface-variant">assignment</span>
       <p class="font-body-md text-body-md text-on-surface-variant mt-3">Aucune demande pour le moment.</p>
     </div>
@@ -270,7 +297,7 @@ function statusIcon(s) {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in filtered" :key="row.id ?? row.Id">
+            <tr v-for="row in items" :key="row.id ?? row.Id">
               <td class="font-label-sm text-label-sm text-on-surface-variant whitespace-nowrap">{{ formatDate(row.dateMouvement ?? row.DateMouvement) }}</td>
               <td class="font-body-md text-body-md text-on-surface">{{ materialName(row.materielId ?? row.MaterielId) }}</td>
               <td class="font-body-sm text-body-sm text-on-surface-variant max-w-xs truncate">{{ row.commentaires || '—' }}</td>
