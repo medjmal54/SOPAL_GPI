@@ -7,7 +7,6 @@ namespace SOPAL_GPI.Services;
 
 public class JwtRepository(IConfiguration _config) : IJwtRepository
 {
-
     public string GenerateAccessToken(IEnumerable<Claim> claims)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
@@ -65,7 +64,7 @@ public class JwtRepository(IConfiguration _config) : IJwtRepository
 
 public interface IJwtRepository
 {
-    public string GenerateAccessToken(IEnumerable<Claim> claims);
-    public string GenerateRefreshToken(IEnumerable<Claim> claims);
-    public ClaimsPrincipal? ValidateRefreshToken(string token);
+    string GenerateAccessToken(IEnumerable<Claim> claims);
+    string GenerateRefreshToken(IEnumerable<Claim> claims);
+    ClaimsPrincipal? ValidateRefreshToken(string token);
 }

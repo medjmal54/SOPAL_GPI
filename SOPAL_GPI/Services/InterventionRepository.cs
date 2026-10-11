@@ -4,18 +4,8 @@ using SOPAL_GPI.Models;
 
 namespace SOPAL_GPI.Services;
 
-public class InterventionRepository(IGenericRepository<Intervention> interventionRepository, GpiContext db) : IinterventionRepositroy
+public class InterventionRepository(GpiContext db) : IinterventionRepositroy
 {
-    public async Task AddAsync(Intervention entity)
-    {
-        await interventionRepository.AddAsync(entity);
-    }
-
-    public Task DeleteAsync(Intervention entity)
-    {
-        throw new NotImplementedException();
-    }
-
     public async Task<List<Intervention>> GetAllAsync()
     {
         return await db.Interventions
@@ -34,7 +24,23 @@ public class InterventionRepository(IGenericRepository<Intervention> interventio
             .FirstOrDefaultAsync(i => i.Id == id);
     }
 
-    public async Task UpdateAsync(Intervention entity) =>  await interventionRepository.UpdateAsync(entity);
+    public async Task AddAsync(Intervention entity)
+    {
+        await db.Interventions.AddAsync(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(Intervention entity)
+    {
+        db.Interventions.Update(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Intervention entity)
+    {
+        db.Interventions.Remove(entity);
+        await db.SaveChangesAsync();
+    }
 
     public async Task<List<Intervention>> GetUserInterventionsAsync(int id)
     {
@@ -60,9 +66,14 @@ public class InterventionRepository(IGenericRepository<Intervention> interventio
     }
 }
 
-public interface IinterventionRepositroy : IGenericRepository<Intervention>
+public interface IinterventionRepositroy
 {
-    public Task<List<Intervention>> GetUserInterventionsAsync(int id);
-    public Task<List<Intervention>> GetByMouvementIdAsync(int mouvementId);
-    public Task AddRangeAsync(IEnumerable<Intervention> entities);
+    Task<List<Intervention>> GetAllAsync();
+    Task<Intervention?> GetByIdAsync(int id);
+    Task AddAsync(Intervention entity);
+    Task UpdateAsync(Intervention entity);
+    Task DeleteAsync(Intervention entity);
+    Task<List<Intervention>> GetUserInterventionsAsync(int id);
+    Task<List<Intervention>> GetByMouvementIdAsync(int mouvementId);
+    Task AddRangeAsync(IEnumerable<Intervention> entities);
 }

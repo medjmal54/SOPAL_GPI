@@ -5,24 +5,34 @@ using SOPAL_GPI.Models;
 
 namespace SOPAL_GPI.Services;
 
-public class MaterialRepository(IGenericRepository<Material> materialRepo, GpiContext dbContext) : IGenericRepository<Material>, IMaterialRepository
+public class MaterialRepository(GpiContext dbContext) : IMaterialRepository
 {
-    public async Task AddAsync(Material entity) => await materialRepo.AddAsync(entity);
-
-    public async Task DeleteAsync(Material entity) => await materialRepo.DeleteAsync(entity);
-
-
-    public async Task<List<Material>> GetAllAsync() => await materialRepo.GetAllAsync();
-    
+    public async Task<List<Material>> GetAllAsync()
+    {
+        return await dbContext.Materials.AsNoTracking().ToListAsync();
+    }
 
     public async Task<Material?> GetByIdAsync(int id)
     {
-        return await materialRepo.GetByIdAsync(id);
+        return await dbContext.Materials.FindAsync(id);
+    }
+
+    public async Task AddAsync(Material entity)
+    {
+        await dbContext.Materials.AddAsync(entity);
+        await dbContext.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(Material entity)
     {
-        await materialRepo.UpdateAsync(entity);
+        dbContext.Materials.Update(entity);
+        await dbContext.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Material entity)
+    {
+        dbContext.Materials.Remove(entity);
+        await dbContext.SaveChangesAsync();
     }
 
     public async Task<Material> GetMatsWithHist(Material entity)
@@ -79,9 +89,14 @@ public class MaterialRepository(IGenericRepository<Material> materialRepo, GpiCo
     }
 }
 
-public interface IMaterialRepository : IGenericRepository<Material>
+public interface IMaterialRepository
 {
-    public Task<Material> GetMatsWithHist(Material entity);
-    public Task<List<Material>> GetByEmployeMatAsync(int matricule, string? q = null);
-    public Task<PaginatedResult<Material>> SearchAsync(string? q, int? typeId, int? localisationId, bool? actif, int? employeMat, string? department);
+    Task<List<Material>> GetAllAsync();
+    Task<Material?> GetByIdAsync(int id);
+    Task AddAsync(Material entity);
+    Task UpdateAsync(Material entity);
+    Task DeleteAsync(Material entity);
+    Task<Material> GetMatsWithHist(Material entity);
+    Task<List<Material>> GetByEmployeMatAsync(int matricule, string? q = null);
+    Task<PaginatedResult<Material>> SearchAsync(string? q, int? typeId, int? localisationId, bool? actif, int? employeMat, string? department);
 }

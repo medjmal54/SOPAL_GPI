@@ -1,36 +1,45 @@
-﻿using SOPAL_GPI.Models;
+﻿using Microsoft.EntityFrameworkCore;
+using SOPAL_GPI.Data;
+using SOPAL_GPI.Models;
 
 namespace SOPAL_GPI.Services;
 
-public class MatypeRepository(IGenericRepository<Matype> matypeRepo) : IGenericRepository<Matype>, IMatypeRepository
+public class MatypeRepository(GpiContext db) : IMatypeRepository
 {
-    public Task AddAsync(Matype entity)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task DeleteAsync(Matype entity)
-    {
-        throw new NotImplementedException();
-    }
-
     public async Task<List<Matype>> GetAllAsync()
     {
-        return await matypeRepo.GetAllAsync();
+        return await db.Matypes.AsNoTracking().ToListAsync();
     }
 
-    public Task<Matype?> GetByIdAsync(int id)
+    public async Task<Matype?> GetByIdAsync(int id)
     {
-        return matypeRepo.GetByIdAsync(id);
+        return await db.Matypes.FindAsync(id);
     }
 
-    public Task UpdateAsync(Matype entity)
+    public async Task AddAsync(Matype entity)
     {
-        throw new NotImplementedException();
+        await db.Matypes.AddAsync(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(Matype entity)
+    {
+        db.Matypes.Update(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Matype entity)
+    {
+        db.Matypes.Remove(entity);
+        await db.SaveChangesAsync();
     }
 }
 
-public interface IMatypeRepository: IGenericRepository<Matype>
+public interface IMatypeRepository
 {
-
+    Task<List<Matype>> GetAllAsync();
+    Task<Matype?> GetByIdAsync(int id);
+    Task AddAsync(Matype entity);
+    Task UpdateAsync(Matype entity);
+    Task DeleteAsync(Matype entity);
 }

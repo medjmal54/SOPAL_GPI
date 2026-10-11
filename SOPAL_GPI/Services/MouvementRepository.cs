@@ -2,33 +2,43 @@
 using SOPAL_GPI.Data;
 using SOPAL_GPI.DTOs;
 using SOPAL_GPI.Models;
-using SOPAL_GPI.Services;
 
 namespace SOPAL_GPI.Services;
 
-public class MouvementRepository(IGenericRepository<Mouvement> MouvRepo, IMaterialRepository materialRepository, GpiContext db) : IMouvementRepository, IGenericRepository<Mouvement>
+public class MouvementRepository(GpiContext db, IMaterialRepository materialRepository) : IMouvementRepository
 {
-    public async Task AddAsync(Mouvement entity) => await MouvRepo.AddAsync(entity);
-    
-
-    public async Task DeleteAsync(Mouvement entity)
-    {
-        await MouvRepo.DeleteAsync(entity);
-    }
 
     public async Task<List<Mouvement>> GetAllAsync()
     {
-        return await MouvRepo.GetAllAsync();
+        return await db.Mouvements.AsNoTracking().ToListAsync();
     }
 
-    public async Task<Mouvement?> GetByIdAsync(int id) => await MouvRepo.GetByIdAsync(id);
-
-    public async Task<List<Mouvement>> GetMouvementsById(int id) => await db.Mouvements.Where(x => x.MaterielId == id).ToListAsync();
-    
-
-    public Task UpdateAsync(Mouvement entity)
+    public async Task<Mouvement?> GetByIdAsync(int id)
     {
-        throw new NotImplementedException();
+        return await db.Mouvements.FindAsync(id);
+    }
+
+    public async Task AddAsync(Mouvement entity)
+    {
+        await db.Mouvements.AddAsync(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(Mouvement entity)
+    {
+        db.Mouvements.Update(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Mouvement entity)
+    {
+        db.Mouvements.Remove(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task<List<Mouvement>> GetMouvementsById(int id)
+    {
+        return await db.Mouvements.Where(x => x.MaterielId == id).ToListAsync();
     }
 
     public async Task AffecterEmp(Material entity, int matricule)
@@ -42,12 +52,12 @@ public class MouvementRepository(IGenericRepository<Mouvement> MouvRepo, IMateri
             NouvEtatmatId = 2,
             LocalisationId = entity.LocalisationId,
             EmployeMat = matricule,
-            Commentaires = $"Ce matériel a été affecté à l'employé {matricule}"
+            Commentaires = $"Ce mat�riel a �t� affect� � l'employ� {matricule}"
         };
         entity.EtatId = 2;
         entity.DateModif = DateTime.Now;
         await materialRepository.UpdateAsync(entity);
-        await MouvRepo.AddAsync(mouvement);
+        await AddAsync(mouvement);
     }
 
     public async Task Transfert(Material entity, int localisation)
@@ -64,9 +74,9 @@ public class MouvementRepository(IGenericRepository<Mouvement> MouvRepo, IMateri
             AncienEtatmatId = entity.EtatId,
             NouvEtatmatId = entity.EtatId,
             EmployeMat = entity.EmployeMat,
-            Commentaires = "Matériel transferé!"
+            Commentaires = "Mat�riel transfer�!"
         };
-        await MouvRepo.AddAsync(mouvement);
+        await AddAsync(mouvement);
     }
 
     public async Task Retour(Material entity)
@@ -84,7 +94,7 @@ public class MouvementRepository(IGenericRepository<Mouvement> MouvRepo, IMateri
             Commentaires = "Retour"
         };
 
-        await MouvRepo.AddAsync(mouvement);
+        await AddAsync(mouvement);
         entity.DateModif = DateTime.Now;
         entity.EtatId = mouvement.NouvEtatmatId;
         await materialRepository.UpdateAsync(entity);
@@ -129,56 +139,162 @@ public class MouvementRepository(IGenericRepository<Mouvement> MouvRepo, IMateri
         return await query.OrderByDescending(m => m.DateMouvement).ToListAsync();
     }
 
+    public async Task<Mouvement?> GetRequestWithDetails(int id)
+    {
+        return await db.Mouvements
+            .Include(m => m.Materiel)
+            .Include(m => m.EmployeMatNavigation)
+            .FirstOrDefaultAsync(m => m.Id == id && m.Typmov == 4);
+    }
+
+    public async Task<List<Mouvement>> SearchAsync(string? q, int? typeId, int? localisationId, int? employeMat, int? typeMouvement, string? department)
+    {
+        var query = db.Mouvements.AsNoTracking()
+            .Include(m => m.Materiel)
+            .Include(m => m.EmployeMatNavigation)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var needle = q.Trim().ToLower();
+            query = query.Where(m =>
+                (m.Commentaires != null && m.Commentaires.ToLower().Contains(needle)) ||
+                (m.Materiel != null && (
+                    m.Materiel.Libelle.ToLower().Contains(needle) ||
+                    m.Materiel.NumSerie.ToLower().Contains(needle) ||
+                    m.Materiel.Marque.ToLower().Contains(needle) ||
+                    m.Materiel.Modele.ToLower().Contains(needle)
+                )) ||
+                (m.EmployeMatNavigation != null && (
+                    m.EmployeMatNavigation.Nom.ToLower().Contains(needle) ||
+                    m.EmployeMatNavigation.Prenom.ToLower().Contains(needle)
+                ))
+            );
+        }
+        if (typeId.HasValue)
+        {
+            query = query.Where(m => m.Materiel != null && m.Materiel.TypeMaterielId == typeId.Value);
+        }
+        if (localisationId.HasValue) query = query.Where(m => m.LocalisationId == localisationId.Value);
+        if (employeMat.HasValue) query = query.Where(m => m.EmployeMat == employeMat.Value);
+        if (typeMouvement.HasValue) query = query.Where(m => m.Typmov == typeMouvement.Value);
+        if (!string.IsNullOrWhiteSpace(department) && department != "all")
+            query = query.Where(m => m.EmployeMatNavigation != null && m.EmployeMatNavigation.Service == department);
+
+        var items = await query.OrderByDescending(m => m.DateMouvement).ToListAsync();
+        return items;
+    }
+
+    public async Task<PaginatedResult<Mouvement>> SearchPaginatedAsync(string? q, int? typeId, int? localisationId, int? employeMat, int? typeMouvement, string? department, int page = 1, int pageSize = 10)
+    {
+        var query = db.Mouvements.AsNoTracking()
+            .Include(m => m.Materiel)
+            .Include(m => m.EmployeMatNavigation)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var needle = q.Trim().ToLower();
+            query = query.Where(m =>
+                (m.Commentaires != null && m.Commentaires.ToLower().Contains(needle)) ||
+                (m.Materiel != null && (
+                    m.Materiel.Libelle.ToLower().Contains(needle) ||
+                    m.Materiel.NumSerie.ToLower().Contains(needle) ||
+                    m.Materiel.Marque.ToLower().Contains(needle) ||
+                    m.Materiel.Modele.ToLower().Contains(needle)
+                )) ||
+                (m.EmployeMatNavigation != null && (
+                    m.EmployeMatNavigation.Nom.ToLower().Contains(needle) ||
+                    m.EmployeMatNavigation.Prenom.ToLower().Contains(needle)
+                ))
+            );
+        }
+        if (typeId.HasValue)
+        {
+            query = query.Where(m => m.Materiel != null && m.Materiel.TypeMaterielId == typeId.Value);
+        }
+        if (localisationId.HasValue) query = query.Where(m => m.LocalisationId == localisationId.Value);
+        if (employeMat.HasValue) query = query.Where(m => m.EmployeMat == employeMat.Value);
+        if (typeMouvement.HasValue) query = query.Where(m => m.Typmov == typeMouvement.Value);
+        if (!string.IsNullOrWhiteSpace(department) && department != "all")
+            query = query.Where(m => m.EmployeMatNavigation != null && m.EmployeMatNavigation.Service == department);
+
+        var total = await query.CountAsync();
+        var items = await query.OrderByDescending(m => m.DateMouvement)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        return new PaginatedResult<Mouvement> { Items = items, Total = total };
+    }
+
+        public async Task<Mouvement> AddRequestAsync(int matricule, Material material, string descPanne)
+    {
+        var mouvement = new Mouvement
+        {
+            Typmov = 4,
+            MaterielId = material.Id,
+            LocalisationId = material.LocalisationId,
+            AncienEtatmatId = material.EtatId,
+            NouvEtatmatId = material.EtatId,
+            EmployeMat = matricule,
+            Commentaires = descPanne,
+            Statut = "Pas encore intervenu",
+            DateMouvement = DateTime.Now
+        };
+        await db.Mouvements.AddAsync(mouvement);
+        await db.SaveChangesAsync();
+        return mouvement;
+    }
+
     public async Task<int> GetPendingRequestCountAsync()
     {
         return await db.Mouvements.CountAsync(x => x.Typmov == 4 && x.Statut == "Pas encore intervenu");
     }
 
-    public async Task ResolveAsync(int mouvementId)
+    public async Task ResolveAsync(int id)
     {
-        var mouvement = await db.Mouvements.FindAsync(mouvementId);
-        if (mouvement is not null)
+        var mouvement = await db.Mouvements.FindAsync(id);
+        if (mouvement != null)
         {
             mouvement.Statut = "Terminé";
+            db.Mouvements.Update(mouvement);
             await db.SaveChangesAsync();
         }
     }
 
-    public async Task ToggleResolveAsync(int mouvementId)
+    public async Task ToggleResolveAsync(int id)
     {
-        var mouvement = await db.Mouvements.FindAsync(mouvementId);
-        if (mouvement is not null)
+        var mouvement = await db.Mouvements.FindAsync(id);
+        if (mouvement != null)
         {
-            mouvement.Statut = mouvement.Statut == "Terminé" ? "En cours" : "Terminé";
+            mouvement.Statut = mouvement.Statut == "Terminé" ? "Pas encore intervenu" : "Terminé";
+            db.Mouvements.Update(mouvement);
             await db.SaveChangesAsync();
         }
     }
 
-    public async Task StartInterventionAsync(int mouvementId, int adminMatricule)
+    public async Task StartInterventionAsync(int id, int matricule)
     {
-        var mouvement = await db.Mouvements.FindAsync(mouvementId);
-        if (mouvement is not null)
+        var mouvement = await db.Mouvements.FindAsync(id);
+        if (mouvement != null)
         {
             mouvement.Statut = "En cours";
-            mouvement.EmployeMat = adminMatricule;
+            // IntervenantId stored on Intervention, not on Mouvement
+            db.Mouvements.Update(mouvement);
             await db.SaveChangesAsync();
         }
     }
 
-    public async Task<List<Mouvement>> GetMyInterventionsAsync(int adminMatricule)
+    public async Task<List<Mouvement>> GetMyInterventionsAsync(int matricule, string? q, bool? done)
     {
-        return await db.Mouvements
-            .Where(x => x.Typmov == 4 && x.EmployeMat == adminMatricule)
-            .ToListAsync();
-    }
-
-    public async Task<PaginatedResult<Mouvement>> GetMyInterventionsAsync(int adminMatricule, string? q, bool? done)
-    {
-        var query = db.Mouvements.AsNoTracking().Where(x => x.Typmov == 4 && x.EmployeMat == adminMatricule);
-
+        var query = db.Mouvements.AsNoTracking()
+            .Where(x => x.Typmov == 4 && x.Interventions.Any(i => i.IntervenantId == matricule));
+        
         if (done.HasValue)
-            query = done.Value ? query.Where(m => m.Statut == "Terminé") : query.Where(m => m.Statut != "Terminé");
-
+        {
+            query = done.Value ? query.Where(x => x.Statut == "Terminé") : query.Where(x => x.Statut != "Terminé");
+        }
         if (!string.IsNullOrWhiteSpace(q))
         {
             var needle = q.Trim().ToLower();
@@ -186,94 +302,37 @@ public class MouvementRepository(IGenericRepository<Mouvement> MouvRepo, IMateri
                 (m.Materiel != null && m.Materiel.Libelle.ToLower().Contains(needle)) ||
                 (m.Commentaires != null && m.Commentaires.ToLower().Contains(needle)));
         }
-
-        var total = await db.Mouvements.CountAsync(x => x.Typmov == 4 && x.EmployeMat == adminMatricule);
-        var items = await query.OrderByDescending(m => m.DateMouvement).ToListAsync();
-
-        return new PaginatedResult<Mouvement> { Items = items, Total = total };
+        return await query.Include(m => m.Materiel).OrderByDescending(m => m.DateMouvement).ToListAsync();
     }
 
-    public async Task<MouvementSearchResult> SearchAsync(string? q, int? typmov, int? localisationId, DateTime? from, DateTime? to, string? status, int page, int pageSize)
-    {
-        var query = db.Mouvements.AsNoTracking().AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(q))
-        {
-            var needle = q.Trim().ToLower();
-            query = query.Where(m =>
-                (m.Materiel != null && m.Materiel.Libelle.ToLower().Contains(needle)) ||
-                (m.Commentaires != null && m.Commentaires.ToLower().Contains(needle)));
-        }
-        if (typmov.HasValue) query = query.Where(m => m.Typmov == typmov.Value);
-        if (localisationId.HasValue) query = query.Where(m => m.LocalisationId == localisationId.Value);
-        if (from.HasValue) query = query.Where(m => m.DateMouvement >= from.Value);
-        if (to.HasValue) query = query.Where(m => m.DateMouvement <= to.Value.Date.AddDays(1).AddTicks(-1));
-
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            if (status == "completed")
-                query = query.Where(m => m.Statut == "Terminé" || m.Statut == "Termine" || m.Statut == null || m.Statut == "");
-            else if (status == "pending")
-                query = query.Where(m => m.Statut != "Terminé" && m.Statut != "Termine" && m.Statut != null && m.Statut != "");
-        }
-
-        var total = await query.CountAsync();
-        var items = await query
-            .OrderByDescending(m => m.DateMouvement)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        var totalCompleted = await db.Mouvements.CountAsync(m => m.Statut == "Terminé" || m.Statut == "Termine" || m.Statut == null || m.Statut == "");
-        var totalPending = await db.Mouvements.CountAsync(m => m.Statut != "Terminé" && m.Statut != "Termine" && m.Statut != null && m.Statut != "");
-
-        return new MouvementSearchResult
-        {
-            Items = items,
-            Total = total,
-            TotalCompleted = totalCompleted,
-            TotalPending = totalPending
-        };
-    }
-
-    public async Task<Mouvement> AddRequestAsync(int matricule, Material entity, string comm)
-    {
-        entity.LocalisationId = 4;
-        entity.DateModif = DateTime.Now;
-        var mouvement = new Mouvement
-        {
-            Typmov = 4,
-            MaterielId = entity.Id,
-            AncienEtatmatId = entity.EtatId,
-            NouvEtatmatId = 3,
-            EmployeMat = null,
-            LocalisationId = 4,
-            Commentaires = comm,
-            Statut = "Pas encore intervenu"
-        };
-        await MouvRepo.AddAsync(mouvement);
-        entity.EtatId = 3;
-        await materialRepository.UpdateAsync(entity);
-        return mouvement;
-    }
 }
 
-public interface IMouvementRepository : IGenericRepository<Mouvement>
+public interface IMouvementRepository
 {
-    public Task AffecterEmp(Material entity, int matricule);
-    public Task Transfert(Material entity, int localisation);
-    public Task Retour(Material entity);
-    public Task<List<Mouvement>> GetMouvementsById(int id);
-    public Task<List<Mouvement>> GetIntrvRequests();
-    public Task<List<Mouvement>> GetIntrvRequests(string? q);
-    public Task<List<Mouvement>> GetRequetsByUserAsync(int matricule);
-    public Task<List<Mouvement>> GetRequetsByUserAsync(int matricule, string? q);
-    public Task<int> GetPendingRequestCountAsync();
-    public Task<Mouvement> AddRequestAsync(int matricule, Material entity, string comm);
-    public Task ResolveAsync(int mouvementId);
-    public Task ToggleResolveAsync(int mouvementId);
-    public Task StartInterventionAsync(int mouvementId, int adminMatricule);
-    public Task<List<Mouvement>> GetMyInterventionsAsync(int adminMatricule);
-    public Task<PaginatedResult<Mouvement>> GetMyInterventionsAsync(int adminMatricule, string? q, bool? done);
-    public Task<MouvementSearchResult> SearchAsync(string? q, int? typmov, int? localisationId, DateTime? from, DateTime? to, string? status, int page, int pageSize);
+
+    Task<List<Mouvement>> GetAllAsync();
+    Task<Mouvement?> GetByIdAsync(int id);
+    Task AddAsync(Mouvement entity);
+    Task UpdateAsync(Mouvement entity);
+    Task DeleteAsync(Mouvement entity);
+    Task<List<Mouvement>> GetMouvementsById(int id);
+    Task AffecterEmp(Material entity, int matricule);
+    Task Transfert(Material entity, int localisation);
+    Task Retour(Material entity);
+    Task<List<Mouvement>> GetIntrvRequests();
+    Task<List<Mouvement>> GetIntrvRequests(string? q);
+    Task<List<Mouvement>> GetRequetsByUserAsync(int matricule);
+    Task<List<Mouvement>> GetRequetsByUserAsync(int matricule, string? q);
+    Task<Mouvement?> GetRequestWithDetails(int id);
+    Task<List<Mouvement>> SearchAsync(string? q, int? typeId, int? localisationId, int? employeMat, int? typeMouvement, string? department);
+    Task<PaginatedResult<Mouvement>> SearchPaginatedAsync(string? q, int? typeId, int? localisationId, int? employeMat, int? typeMouvement, string? department, int page = 1, int pageSize = 10);
+    Task<Mouvement> AddRequestAsync(int matricule, Material material, string descPanne);
+    Task<int> GetPendingRequestCountAsync();
+    Task ResolveAsync(int id);
+    Task ToggleResolveAsync(int id);
+    Task StartInterventionAsync(int id, int matricule);
+    Task<List<Mouvement>> GetMyInterventionsAsync(int matricule, string? q, bool? done);
+
 }
+
+

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using Scalar.AspNetCore;
 using SOPAL_GPI.MiddleWare;
@@ -78,7 +78,6 @@ builder.Services.AddCors(options =>
 });
 
 // Dependency injections
-builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 builder.Services.AddScoped<IEmployeRepository, EmployeRepository>();
 builder.Services.AddScoped<IMaterialRepository, MaterialRepository>();
 builder.Services.AddScoped<IMatypeRepository, MatypeRepository>();

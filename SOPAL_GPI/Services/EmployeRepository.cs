@@ -5,36 +5,39 @@ using SOPAL_GPI.Models;
 
 namespace SOPAL_GPI.Services;
 
-public class EmployeRepository(IGenericRepository<Employe> genericrepo, GpiContext db) : IGenericRepository<Employe>, IEmployeRepository
+public class EmployeRepository(GpiContext db) : IEmployeRepository
 {
-    public async Task AddAsync(Employe entity)
-    {
-        await genericrepo.AddAsync(entity);
-    }
-
-    public Task DeleteAsync(Employe entity)
-    {
-        throw new NotImplementedException();
-    }
-
     public async Task<List<Employe>> GetAllAsync()
     {
-        return await genericrepo.GetAllAsync();
+        return await db.Employes.AsNoTracking().ToListAsync();
     }
 
-    public Task<Employe?> GetByIdAsync(int id)
+    public async Task<Employe?> GetByIdAsync(int id)
     {
-        return genericrepo.GetByIdAsync(id);
+        return await db.Employes.FindAsync(id);
+    }
+
+    public async Task AddAsync(Employe entity)
+    {
+        await db.Employes.AddAsync(entity);
+        await db.SaveChangesAsync();
     }
 
     public async Task UpdateAsync(Employe entity)
     {
-        await genericrepo.UpdateAsync(entity);
+        db.Employes.Update(entity);
+        await db.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Employe entity)
+    {
+        db.Employes.Remove(entity);
+        await db.SaveChangesAsync();
     }
 
     public async Task<int> GenerateMatAsync()
     {
-        var all = await genericrepo.GetAllAsync();
+        var all = await db.Employes.ToListAsync();
         return (DateTime.Now.Year % 100) * 1000 + all.Count;
     }
 
@@ -77,8 +80,13 @@ public class EmployeRepository(IGenericRepository<Employe> genericrepo, GpiConte
     }
 }
 
-public interface IEmployeRepository : IGenericRepository<Employe>
+public interface IEmployeRepository
 {
-    public Task<int> GenerateMatAsync();
-    public Task<PaginatedResult<EmployeListItemDto>> SearchAsync(string? q, string? service);
+    Task<List<Employe>> GetAllAsync();
+    Task<Employe?> GetByIdAsync(int id);
+    Task AddAsync(Employe entity);
+    Task UpdateAsync(Employe entity);
+    Task DeleteAsync(Employe entity);
+    Task<int> GenerateMatAsync();
+    Task<PaginatedResult<EmployeListItemDto>> SearchAsync(string? q, string? service);
 }

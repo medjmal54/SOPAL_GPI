@@ -1,25 +1,46 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using Microsoft.EntityFrameworkCore;
+using SOPAL_GPI.Data;
 using SOPAL_GPI.Models;
 
 namespace SOPAL_GPI.Services
 {
-    public class LocalisationRepository(IGenericRepository<Localistation> _localisationRepo): ILocalisationRepository
+    public class LocalisationRepository(GpiContext db) : ILocalisationRepository
     {
+        public async Task<List<Localistation>> GetAllAsync()
+        {
+            return await db.Localistations.AsNoTracking().ToListAsync();
+        }
 
-        public Task AddAsync(Localistation entity) => _localisationRepo.AddAsync(entity);
+        public async Task<Localistation?> GetByIdAsync(int id)
+        {
+            return await db.Localistations.FindAsync(id);
+        }
 
-        public Task DeleteAsync(Localistation entity) => _localisationRepo.DeleteAsync(entity);
+        public async Task AddAsync(Localistation entity)
+        {
+            await db.Localistations.AddAsync(entity);
+            await db.SaveChangesAsync();
+        }
 
-        public Task<List<Localistation>> GetAllAsync() => _localisationRepo.GetAllAsync();
+        public async Task UpdateAsync(Localistation entity)
+        {
+            db.Localistations.Update(entity);
+            await db.SaveChangesAsync();
+        }
 
-        public Task<Localistation?> GetByIdAsync(int id) => _localisationRepo.GetByIdAsync(id);
-
-        public Task UpdateAsync(Localistation entity) => _localisationRepo.UpdateAsync(entity);
+        public async Task DeleteAsync(Localistation entity)
+        {
+            db.Localistations.Remove(entity);
+            await db.SaveChangesAsync();
+        }
     }
 
-    public interface ILocalisationRepository : IGenericRepository<Localistation>
+    public interface ILocalisationRepository
     {
+        Task<List<Localistation>> GetAllAsync();
+        Task<Localistation?> GetByIdAsync(int id);
+        Task AddAsync(Localistation entity);
+        Task UpdateAsync(Localistation entity);
+        Task DeleteAsync(Localistation entity);
     }
 }

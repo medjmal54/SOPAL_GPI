@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using SOPAL_GPI.Data;
 using SOPAL_GPI.DTOs;
 using SOPAL_GPI.Models;
@@ -42,11 +42,11 @@ public class DashboardRepository(GpiContext db) : IDashboardRepository
 
         var metrics = new List<MetricDto>
         {
-            new() { Label = "Total matériels", Value = total, Icon = "account_tree", Tone = "blue", Note = $"{categoryCount} catégorie{(categoryCount != 1 ? "s" : "")}" },
+            new() { Label = "Total mat\u00e9riels", Value = total, Icon = "account_tree", Tone = "blue", Note = $"{categoryCount} cat\u00e9gorie{(categoryCount != 1 ? "s" : "")}" },
             new() { Label = "En stock", Value = stock, Icon = "inventory_2", Tone = "green", Note = percent(stock) },
-            new() { Label = "Affectés", Value = assigned, Icon = "person_pin_circle", Tone = "blue", Note = percent(assigned) },
-            new() { Label = "Maintenance", Value = maintenance, Icon = "build_circle", Tone = "amber", Note = maintenance > 0 ? $"{maintenance} à surveiller" : "Aucune alerte" },
-            new() { Label = "Hors service", Value = broken, Icon = "cancel", Tone = "red", Note = broken > 0 ? "Contrôle requis" : "Aucun matériel" }
+            new() { Label = "Affect\u00e9s", Value = assigned, Icon = "person_pin_circle", Tone = "blue", Note = percent(assigned) },
+            new() { Label = "Maintenance", Value = maintenance, Icon = "build_circle", Tone = "amber", Note = maintenance > 0 ? $"{maintenance} \u00e0 surveiller" : "Aucune alerte" },
+            new() { Label = "Hors service", Value = broken, Icon = "cancel", Tone = "red", Note = broken > 0 ? "Contr\u00f4le requis" : "Aucun mat\u00e9riel" }
         };
 
         var materialIds = materials.Select(m => m.Id).ToList();
@@ -78,38 +78,35 @@ public class DashboardRepository(GpiContext db) : IDashboardRepository
             CategoryCount = categoryCount,
             FilteredMaterialsTotal = total,
             Departments = departments,
-            Types = types
+
         };
     }
 
     private static DashboardChartDto BuildMovementChart(List<Mouvement> movements, DateTime? rangeStart)
     {
-        var end = DateTime.Today.AddDays(1).AddTicks(-1);
-        DateTime start;
-        if (rangeStart.HasValue)
-            start = rangeStart.Value;
-        else if (movements.Count > 0)
-            start = movements.Min(m => m.DateMouvement);
-        else
-            start = end.AddDays(-6);
-
-        if (start >= end) start = end.AddDays(-6);
-
-        var step = Max(end - start, TimeSpan.FromDays(7)) / 7.0;
+        DateTime start = rangeStart ?? DateTime.Today.AddDays(-6);
+        DateTime end = DateTime.Today;
+        if (rangeStart.HasValue && rangeStart.Value > end) end = rangeStart.Value;
+        TimeSpan totalSpan = end - start;
+        TimeSpan step = totalSpan.TotalDays <= 0 ? TimeSpan.FromDays(1) : totalSpan / 7.0;
+        if (step < TimeSpan.FromHours(1)) step = TimeSpan.FromDays(1);
 
         var affectations = new int[7];
         var retours = new int[7];
-        foreach (var movement in movements)
+        foreach (var m in movements)
         {
-            var index = FindBucket(movement.DateMouvement, start, step, end);
-            if (index < 0) continue;
-            if (movement.Typmov == 1) affectations[index]++;
-            else if (movement.Typmov == 2) retours[index]++;
+            var idx = FindBucket(m.DateMouvement.Date, start.Date, step, end.Date);
+            if (idx < 0 || idx > 6) continue;
+            if (m.Typmov == 1) affectations[idx]++;
+            if (m.Typmov == 2) retours[idx]++;
         }
 
-        var labels = Enumerable.Range(0, 7)
-            .Select(i => start.Add(step * i).ToString("dd MMM", CultureInfo.GetCultureInfo("fr-FR")))
-            .ToList();
+        var labels = new List<string>(7);
+        for (var i = 0; i < 7; i++)
+        {
+            var bucketStart = start.Add(step * i);
+            labels.Add(bucketStart.ToString("dd MMM", CultureInfo.GetCultureInfo("fr-FR")));
+        }
 
         return new DashboardChartDto
         {
@@ -133,18 +130,17 @@ public class DashboardRepository(GpiContext db) : IDashboardRepository
         return -1;
     }
 
-    private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
-
     private static bool IsBroken(Material material) =>
         material.Actif == false ||
-        Regex.IsMatch(material.Etat?.Libelle ?? "", @"hors|rebut|défect|defect|panne|irrécup|irrecup", RegexOptions.IgnoreCase);
+        Regex.IsMatch(material.Etat?.Libelle ?? "", @"hors|rebut|d\u00e9fect|defect|panne|irr\u00e9cup|irrecup", RegexOptions.IgnoreCase);
 
     private static bool IsMaintenance(Material material) =>
         !IsBroken(material) &&
-        Regex.IsMatch(material.Etat?.Libelle ?? "", @"maint|répar|repar|intervention|diagnostic", RegexOptions.IgnoreCase);
+        Regex.IsMatch(material.Etat?.Libelle ?? "", @"maint|r\u00e9par|repar|intervention|diagnostic", RegexOptions.IgnoreCase);
 }
 
 public interface IDashboardRepository
 {
     Task<DashboardData> GetDashboardAsync(DashboardFilter filter);
 }
+
