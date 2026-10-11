@@ -1,3 +1,12 @@
-.vs/
+﻿.vs/
 **/obj/
 **/bin/
+/SOPAL_GPI/appsettings.json
+/SOPAL_GPI/appsettings.Development.json
+/SOPAL_GPI/appsettings.Production.json
+/SOPAL_GPI/appsettings.*.json
+**/.env
+**/*.user
+**/*.suo
+**/logs/
+**/*.log
