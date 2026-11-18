@@ -29,9 +29,8 @@ SOPAL GPI is an IT asset management application developed to help organizations 
 
 ## Project Preview
 
-![Project Preview](Architecture/project-preview.png)
+![Project Preview](Architecture/project-preview.jpg)
 
-> Place a project preview image at `Architecture/project-preview.png` (add it to the repo when ready).
 
 ## Objectives
 
@@ -92,10 +91,6 @@ The system uses a **frontend + backend API** architecture:
 - **Backend**: ASP.NET Core Web API (`SOPAL_GPI/`)
 - **Database**: Microsoft SQL Server
 - **Realtime**: SignalR hub for notifications (e.g., new intervention requests)
-
-### C4 Model — System Context
-
-![System Context](Architecture/system-context.png)
 
 ### C4 Model — Component Diagram
 
