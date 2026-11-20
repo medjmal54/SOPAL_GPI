@@ -235,7 +235,3 @@ When the API is running, open the OpenAPI/Scalar UI exposed by the backend (see 
 ## Author
 
 **medjmal54** — https://github.com/medjmal54
-
-## License
-
-Add a license file (e.g., MIT) if you plan to publish this repository publicly.
